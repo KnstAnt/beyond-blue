@@ -1,0 +1,11 @@
+Model Information:
+* title:	Island
+* source:	https://sketchfab.com/3d-models/island-97eae02bc92d4beb8e51a9080458ba95
+* author:	Juliën van Beek (https://sketchfab.com/Julien_van_Beek)
+
+Model License:
+* license type:	CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)
+* requirements:	Author must be credited. No commercial use.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Island" (https://sketchfab.com/3d-models/island-97eae02bc92d4beb8e51a9080458ba95) by Juliën van Beek (https://sketchfab.com/Julien_van_Beek) licensed under CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)

@@ -1,0 +1,11 @@
+Model Information:
+* title:	terrain
+* source:	https://sketchfab.com/3d-models/terrain-5fa69ebe12654c64b04575778cd347a1
+* author:	Shazzam (https://sketchfab.com/Shazzam)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "terrain" (https://sketchfab.com/3d-models/terrain-5fa69ebe12654c64b04575778cd347a1) by Shazzam (https://sketchfab.com/Shazzam) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

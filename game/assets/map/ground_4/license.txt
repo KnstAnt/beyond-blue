@@ -1,0 +1,11 @@
+Model Information:
+* title:	Ground 4
+* source:	https://sketchfab.com/3d-models/ground-4-e097831387ea428aa1ca9a4a72f6b40f
+* author:	nigromancer (https://sketchfab.com/nigromancer)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Ground 4" (https://sketchfab.com/3d-models/ground-4-e097831387ea428aa1ca9a4a72f6b40f) by nigromancer (https://sketchfab.com/nigromancer) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
