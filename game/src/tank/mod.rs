@@ -3,18 +3,16 @@ use bevy::prelude::{
     *,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::LinkedList, f32::consts::PI};
-
+use std::{collections::{LinkedList, HashMap}, f32::consts::PI};
 use bevy_rapier3d::prelude::*;
 
 use bevy_prototype_debug_lines::DebugLines;
-use iyes_loopless::prelude::ConditionSet;
-use iyes_loopless::prelude::IntoConditionalSystem;
+use iyes_loopless::prelude::*;
 
 use crate::{
     loading::ModelAssets,
-    player::{LocalHandles, PlayerData},
-    AppState,
+    player::{LocalHandles, PlayerData, PlayerHandle},
+    AppState, shot::TankShotOutData, menu::is_play_online,
 };
 
 use crate::shot::Data as ShotData;
@@ -42,12 +40,15 @@ pub struct TankCannonOutData {
     pub speed: f32,
     pub dir: f32,
 }
-#[repr(C)]
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub struct TankShotOutData {
-    pub is_shot: bool,
-    pub pos: Vec3,
-    pub vel: Vec3,
+
+pub struct InBody {
+    pub data: HashMap<PlayerHandle, TankBodyOutData>,
+}
+pub struct InTurret {
+    pub data: HashMap<PlayerHandle, TankTurretOutData>,
+}
+pub struct InCannon {
+    pub data: HashMap<PlayerHandle, TankCannonOutData>,
 }
 
 //componentsin entities for control
@@ -90,7 +91,7 @@ impl TankShotData {
         Self {
             shot_speed_min: 10.,
             shot_speed_delta: 5.,
-            shot_live_max_time: 10.,
+            shot_live_max_time: 30.,
             explosion_force: 20.,
         }
     }
@@ -128,7 +129,9 @@ pub struct TankPlugin;
 impl Plugin for TankPlugin {
     fn build(&self, app: &mut App) {
         let before_system_set = SystemSet::on_update(AppState::Playing)
-            //      .with_system(print_before_system)
+            .with_system(obr_in_body.run_if(is_play_online))
+            .with_system(obr_in_turret.run_if(is_play_online))
+            .with_system(obr_in_cannon.run_if(is_play_online))
             .with_system(
                 update_body_position
                     //                  .label(InputLabel::ApplyInput)
@@ -776,3 +779,54 @@ pub fn update_cannon_shot(
             ;
     }
 }
+
+
+fn obr_in_body(
+    mut input: ResMut<InBody>, 
+    mut query: Query<(&mut TankControlBody, &PlayerData)>
+) {
+    for (mut body, player) in query.iter_mut() {
+        if let Some(data) = input.data.get(&player.handle) {
+            body.movement.x = data.movement.x;
+            body.movement.y = data.movement.y;
+
+            body.pos.x = data.pos.x;
+            body.pos.y = data.pos.y;
+
+            body.dir = data.dir;
+        }
+    }
+
+    input.data.clear();
+}
+
+fn obr_in_turret(
+    mut input: ResMut<InTurret>,
+    mut query: Query<(&mut TankControlTurret, &PlayerData)>,
+) {
+    for (mut turret, player) in query.iter_mut() {
+        if let Some(data) = input.data.get(&player.handle) {
+            turret.speed = data.speed;
+            turret.dir = data.dir;
+            log::info!("game obr_in_turret in speed:{:?} dir:{:?}", turret.speed, turret.dir);
+        }
+    }
+
+    input.data.clear();
+}
+
+fn obr_in_cannon(
+    mut input: ResMut<InCannon>,
+    mut query: Query<(&mut TankControlCannon, &PlayerData)>,
+) {
+    for (mut cannon, player) in query.iter_mut() {
+        if let Some(data) = input.data.get(&player.handle) {
+            cannon.speed = data.speed;
+            cannon.dir = data.dir;
+            log::info!("game obr_in_cannon in speed:{:?} dir:{:?}", cannon.speed, cannon.dir);
+        }
+    }
+
+    input.data.clear();
+}
+

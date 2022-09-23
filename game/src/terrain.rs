@@ -316,7 +316,7 @@ pub fn get_pos_on_ground(pos: Vec3, rapier_context: &RapierContext) -> Option<Ve
         );
     */
 
-    if let Some((entity, _toi)) = result {
+    if let Some((_entity, _toi)) = result {
 //        println!("terrain get_pos_on_ground ok {}", Vec3::new(pos.x, pos.y + 2000. - _toi, pos.z));
         return Some(Vec3::new(pos.x, pos.y + 2000. - _toi, pos.z));
     }

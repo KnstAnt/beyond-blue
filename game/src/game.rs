@@ -6,7 +6,7 @@ use iyes_loopless::prelude::*;
 
 use crate::explosion::*;
 use crate::menu::{is_play_offline, is_play_online};
-use crate::network::{NetPlugin, NewNetHandles, InBody, InTurret, InCannon, InShot};
+use crate::network::{NetPlugin, NewNetHandles};
 use crate::player::*;
 use crate::shot::*;
 use crate::tank::*;
@@ -73,31 +73,9 @@ impl Plugin for GamePlugin {
             .add_system_set(SystemSet::on_enter(AppState::Playing).with_system(start_game))
             .add_system_set(
                 SystemSet::on_update(AppState::Playing)
-                .with_system(obr_new_handles
-                        .run_if(is_play_online)
-          //              .before(obr_in_body)
-          //              .before(obr_in_turret)
-          //              .before(obr_in_shot)
-                        
-                    )
-                    .with_system(obr_in_body
-    //                    .after(obr_new_handles)
-                       .run_if(is_play_online)
-                    )
-                    .with_system(obr_in_turret
-     //                   .after(obr_new_handles)
-                        .run_if(is_play_online)
-                    )
-                    .with_system(obr_in_cannon
-   //                     .after(obr_new_handles)
-                        .run_if(is_play_online)
-                    )
-                    .with_system(obr_in_shot
-    //                    .after(obr_new_handles)
-                        .run_if(is_play_online)
-                    )
+                    .with_system(obr_new_handles.run_if(is_play_online) )
             )
-             .add_system_set(
+            .add_system_set(
                 ConditionSet::new()
                     .run_if(is_terrain_complete)
                     .run_if(is_create_physics)
@@ -349,71 +327,4 @@ fn obr_new_handles(
 
     new_handles.handles.clear();
 }
-
-fn obr_in_body(
-    mut input: ResMut<InBody>, 
-    mut query: Query<(&mut TankControlBody, &PlayerData)>
-) {
-    for (mut body, player) in query.iter_mut() {
-        if let Some(data) = input.data.get(&player.handle) {
-            body.movement.x = data.movement.x;
-            body.movement.y = data.movement.y;
-
-            body.pos.x = data.pos.x;
-            body.pos.y = data.pos.y;
-
-            body.dir = data.dir;
-        }
-    }
-
-    input.data.clear();
-}
-
-fn obr_in_turret(
-    mut input: ResMut<InTurret>,
-    mut query: Query<(&mut TankControlTurret, &PlayerData)>,
-) {
-    for (mut turret, player) in query.iter_mut() {
-        if let Some(data) = input.data.get(&player.handle) {
-            turret.speed = data.speed;
-            turret.dir = data.dir;
-            log::info!("game obr_in_turret in speed:{:?} dir:{:?}", turret.speed, turret.dir);
-        }
-    }
-
-    input.data.clear();
-}
-
-fn obr_in_cannon(
-    mut input: ResMut<InCannon>,
-    mut query: Query<(&mut TankControlCannon, &PlayerData)>,
-) {
-    for (mut cannon, player) in query.iter_mut() {
-        if let Some(data) = input.data.get(&player.handle) {
-            cannon.speed = data.speed;
-            cannon.dir = data.dir;
-            log::info!("game obr_in_cannon in speed:{:?} dir:{:?}", cannon.speed, cannon.dir);
-        }
-    }
-
-    input.data.clear();
-}
-
-fn obr_in_shot(
-    mut input: ResMut<InShot>,
-    mut query: Query<(&mut TankControlActionShot, &PlayerData)>,
-) {
-    for (mut shot, player) in query.iter_mut() {
-        if let Some(data) = input.data.get(&player.handle) {
-            if data.is_shot {
-                shot.is_shot = data.is_shot;
-                shot.pos = data.pos;
-                shot.vel = data.vel;
-            }
-        }
-    }
-
-    input.data.clear();
-}
-
 

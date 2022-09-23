@@ -1,14 +1,17 @@
+use std::collections::HashMap;
 use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_rapier3d::plugin::*;
+use serde::{Deserialize, Serialize};
+use iyes_loopless::prelude::*;
 
 use crate::AppState;
-
 use crate::explosion::{add_explosion, OutExplosion, ExplosionNetData};
-use crate::player::{PlayerData, LocalHandles};
+use crate::menu::is_play_online;
+use crate::player::*;
+use crate::tank::TankControlActionShot;
 use crate::terrain::get_pos_on_ground;
-
 
 
 pub struct ShotPlugin;
@@ -17,13 +20,13 @@ impl Plugin for ShotPlugin {
     fn build(&self, app: &mut App) {
   //      let before_system_set = SystemSet::on_update(AppState::Playing)
         //      .with_system(print_before_system);
+    let update_system_set = SystemSet::on_update(AppState::Playing)
+        .with_system(remove_shots)
+        .with_system(obr_in_shot.run_if(is_play_online));
 
     let after_system_set = SystemSet::on_update(AppState::Playing)
         //    .with_system(print_after_system)
         .with_system(handle_explosion_events);
-
-    let update_system_set = SystemSet::on_update(AppState::Playing)
-        .with_system(remove_shots);
 
     app
  //       .add_system_set_to_stage(CoreStage::PreUpdate, State::<AppState>::get_driver())
@@ -34,6 +37,17 @@ impl Plugin for ShotPlugin {
     }
 }
 
+#[repr(C)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct TankShotOutData {
+    pub is_shot: bool,
+    pub pos: Vec3,
+    pub vel: Vec3,
+}
+
+pub struct InShot {
+    pub data: HashMap<PlayerHandle, TankShotOutData>,
+}
 
 #[derive(Component)]
 pub struct Data {
@@ -49,7 +63,7 @@ impl Data {
                 Duration::from_secs_f32(live_max_time),
                 false,
             ), 
-            explosion_radius: explosion_force.sqrt(), 
+            explosion_radius: explosion_force.powf(0.25), 
             explosion_force,
         }
     }
@@ -140,10 +154,30 @@ fn remove_shots(
             commands.entity(entity).despawn_recursive();
 
             continue;
+        } else if global_transform.translation().y < -10. {
+            commands.entity(entity).despawn_recursive();
+            continue;
         }
 
     //    add_explosion(&mut commands, entity, global_transform.translation, &shot_data);
         continue;
        // commands.entity(entity).despawn_recursive();
     }
+}
+
+fn obr_in_shot(
+    mut input: ResMut<InShot>,
+    mut query: Query<(&mut TankControlActionShot, &PlayerData)>,
+) {
+    for (mut shot, player) in query.iter_mut() {
+        if let Some(data) = input.data.get(&player.handle) {
+            if data.is_shot {
+                shot.is_shot = data.is_shot;
+                shot.pos = data.pos;
+                shot.vel = data.vel;
+            }
+        }
+    }
+
+    input.data.clear();
 }

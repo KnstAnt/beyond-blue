@@ -7,8 +7,9 @@ use crate::input::*;
 use crate::tank::TankBodyOutData;
 use crate::tank::TankCannonOutData;
 use crate::tank::TankControlBody;
-use crate::tank::TankShotOutData;
 use crate::tank::TankTurretOutData;
+use crate::shot::TankShotOutData;
+
 use crate::AppState;
 
 use super::tank::{
