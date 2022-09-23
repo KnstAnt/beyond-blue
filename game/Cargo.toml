@@ -28,7 +28,7 @@ default = [
     "bevy_kira_audio/ogg"
 ]
 
-dev = ["bevy/dynamic",]
+#dev = ["bevy/dynamic",]
 
 [dependencies]
 common = { path = "../common" }
@@ -42,14 +42,14 @@ libp2p = "0.46.1"
 async-stream = "0.3.3"
 futures = "0.3.23"
 
-rand = "0.8.3"
+rand = "0.8.5"
 bevy = { version = "0.8.1", default-features = false}#, features = ["dynamic"] }
 bevy_kira_audio = { version = "0.12" }
-bevy_asset_loader = { version = "0.12" }
+bevy_asset_loader = { version = "0.12.1" }
 bevy_rapier3d = { version = "0.16.2", features = [ "parallel", "debug-render", "serde-serialize", ] }
 bevy_prototype_debug_lines = { version = "0.8.1", features = ["3d"] }
 iyes_loopless = { version = "0.7.1"}
-bevy-inspector-egui = { version = "0.12.0" }
+#bevy-inspector-egui = { version = "0.12.0" }
 async-std = { version = "1.12.0", features = ["attributes"] }
 log = "0.4.17"
 tracing-subscriber = { version = "0.3.15", features = [

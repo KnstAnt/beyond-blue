@@ -1,9 +1,9 @@
-use std::{
-    collections::LinkedList,
-    f32::consts::PI,
+use bevy::prelude::{
+    shape::{Cube, UVSphere},
+    *,
 };
 use serde::{Deserialize, Serialize};
-use bevy::prelude::{shape::{UVSphere, Cube}, *};
+use std::{collections::LinkedList, f32::consts::PI};
 
 use bevy_rapier3d::prelude::*;
 
@@ -13,7 +13,8 @@ use iyes_loopless::prelude::IntoConditionalSystem;
 
 use crate::{
     loading::ModelAssets,
-    AppState, player::{LocalHandles, PlayerData},
+    player::{LocalHandles, PlayerData},
+    AppState,
 };
 
 use crate::shot::Data as ShotData;
@@ -21,30 +22,35 @@ use crate::shot::Data as ShotData;
 pub mod body_tank_physics;
 use body_tank_physics::*;
 
-#[derive(Component, Serialize, Deserialize, Debug, Default, Clone)]
+//structs for exchange with network
+#[repr(C)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct TankBodyOutData {
     pub movement: Vec2,
     pub pos: Vec2,
     pub dir: f32,
 }
-#[derive(Component, Serialize, Deserialize, Debug, Default, Clone)]
+#[repr(C)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct TankTurretOutData {
     pub speed: f32,
     pub dir: f32,
 }
-#[derive(Component, Serialize, Deserialize, Debug, Default, Clone)]
+#[repr(C)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct TankCannonOutData {
     pub speed: f32,
     pub dir: f32,
 }
-
-#[derive(Component, Serialize, Deserialize, Debug, Default, Clone)]
+#[repr(C)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct TankShotOutData {
     pub is_shot: bool,
     pub pos: Vec3,
     pub vel: Vec3,
 }
 
+//componentsin entities for control
 #[derive(Component, Debug, Default)]
 pub struct TankControlBody {
     pub movement: Vec2,
@@ -102,7 +108,7 @@ pub struct TankEntityes {
 #[derive(Default, Debug)]
 pub struct NewTank {
     pub handle: usize,
-    pub pos: Vec3,  
+    pub pos: Vec3,
     pub angle: f32,
 }
 
@@ -113,9 +119,7 @@ pub struct NewTanksData {
 
 impl Default for NewTanksData {
     fn default() -> Self {
-        Self {
-            vector: vec![],
-        }
+        Self { vector: vec![] }
     }
 }
 
@@ -127,14 +131,14 @@ impl Plugin for TankPlugin {
             //      .with_system(print_before_system)
             .with_system(
                 update_body_position
-  //                  .label(InputLabel::ApplyInput)
-  //                  .after(InputLabel::PrepInput)
+                    //                  .label(InputLabel::ApplyInput)
+                    //                  .after(InputLabel::PrepInput)
                     .before(update_body_moving),
             )
             .with_system(
                 update_body_moving
-  //                  .label(InputLabel::ApplyInput)
-  //                  .after(InputLabel::PrepInput)
+                    //                  .label(InputLabel::ApplyInput)
+                    //                  .after(InputLabel::PrepInput)
                     .before(update_turret_rotation),
             )
             .with_system(
@@ -164,20 +168,11 @@ impl Plugin for TankPlugin {
         //        .with_system(accelerate_system)
         //     ;
 
-        app
-            .init_resource::<NewTanksData>()
-            .add_system_set(
-                SystemSet::on_enter(AppState::Loading)
-                    .with_system(setup)                   
-            )            
+        app.init_resource::<NewTanksData>()
+            .add_system_set(SystemSet::on_enter(AppState::Loading).with_system(setup))
             .add_system_set_to_stage(CoreStage::PreUpdate, before_system_set)
-            .add_system( obr_spawn_tanks.run_if(is_create_tanks), )
-            .add_system_set(
-                ConditionSet::new()
-                .run_if(is_create_tanks)
-                .into() 
-            );
-            
+            .add_system(obr_spawn_tanks.run_if(is_create_tanks))
+            .add_system_set(ConditionSet::new().run_if(is_create_tanks).into());
     }
 }
 
@@ -188,11 +183,11 @@ fn is_create_tanks(data: Res<NewTanksData>) -> bool {
 
 fn setup(
     mut commands: Commands,
- //   asset_server: Res<AssetServer>,
+    //   asset_server: Res<AssetServer>,
 ) {
-    println!("Tank setup"); 
+    println!("Tank setup");
 
- //   let _scenes: Vec<HandleUntyped> = asset_server.load_folder("Tank_1/PARTS").unwrap();
+    //   let _scenes: Vec<HandleUntyped> = asset_server.load_folder("Tank_1/PARTS").unwrap();
 }
 
 pub fn obr_spawn_tanks(
@@ -206,7 +201,7 @@ pub fn obr_spawn_tanks(
         create_debug_tank(
             &mut commands,
             data.handle,
-            data.pos,  
+            data.pos,
             data.angle,
             &mut meshes,
             &mut materials,
@@ -219,7 +214,7 @@ pub fn obr_spawn_tanks(
 fn create_debug_tank(
     mut commands: &mut Commands,
     player_handle: usize,
-    pos: Vec3,  
+    pos: Vec3,
     angle: f32,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
@@ -227,10 +222,13 @@ fn create_debug_tank(
     let body_size = Vec3::new(1., 0.45, 1.6);
     let config = VehicleConfig::new(body_size);
 
-    let body = commands.spawn_bundle(SpatialBundle {
-        transform: Transform::from_translation(pos).with_rotation(Quat::from_axis_angle(Vec3::Y, angle)),
-        ..Default::default()
-        }).id();
+    let body = commands
+        .spawn_bundle(SpatialBundle {
+            transform: Transform::from_translation(pos)
+                .with_rotation(Quat::from_axis_angle(Vec3::Y, angle)),
+            ..Default::default()
+        })
+        .id();
 
     let (body, wheels) = create_body(
         body,
@@ -242,10 +240,10 @@ fn create_debug_tank(
         SolverGroups::new(0b0010, 0b1111),
     );
 
- /*    commands
-		.entity(body)
-		.insert(LockedAxes::ROTATION_LOCKED | LockedAxes::TRANSLATION_LOCKED );
-*/
+    /*    commands
+            .entity(body)
+            .insert(LockedAxes::ROTATION_LOCKED | LockedAxes::TRANSLATION_LOCKED );
+    */
     let turret_base = commands
         .spawn_bundle(SpatialBundle {
             transform: Transform::from_translation(Vec3::new(0.0, 0.10, 0.0)),
@@ -304,13 +302,23 @@ fn create_debug_tank(
 
     commands.entity(cannon).add_child(fire_point);
 
-    commands.entity(body).insert(PlayerData { handle: player_handle });
-    commands.entity(turret).insert(PlayerData { handle: player_handle });
-    commands.entity(cannon).insert(PlayerData { handle: player_handle });
-    commands.entity(fire_point).insert(PlayerData { handle: player_handle });
-    wheels
-        .iter()
-        .for_each(|wheel| { commands.entity(*wheel).insert(PlayerData { handle: player_handle }); });
+    commands.entity(body).insert(PlayerData {
+        handle: player_handle,
+    });
+    commands.entity(turret).insert(PlayerData {
+        handle: player_handle,
+    });
+    commands.entity(cannon).insert(PlayerData {
+        handle: player_handle,
+    });
+    commands.entity(fire_point).insert(PlayerData {
+        handle: player_handle,
+    });
+    wheels.iter().for_each(|wheel| {
+        commands.entity(*wheel).insert(PlayerData {
+            handle: player_handle,
+        });
+    });
 
     let data = TankEntityes {
         body,
@@ -320,29 +328,29 @@ fn create_debug_tank(
         wheels,
     };
 
-    commands
-    .entity(body)
-    .insert(data);
+    commands.entity(body).insert(data);
 }
 
 fn create_tank(
     mut commands: &mut Commands,
-//    asset_server: &Res<AssetServer>,
+    //    asset_server: &Res<AssetServer>,
     player_handle: usize,
-    pos: Vec3,  
+    pos: Vec3,
     angle: f32,
-    model_assets: &Res<ModelAssets>,    
-//    material: &Handle<bevy::prelude::StandardMaterial>, 
+    model_assets: &Res<ModelAssets>,
+    //    material: &Handle<bevy::prelude::StandardMaterial>,
 ) {
     let body_size = Vec3::new(1., 0.45, 1.6);
     let config = VehicleConfig::new(body_size);
 
     let body = commands
-        .spawn_bundle(SceneBundle  {
+        .spawn_bundle(SceneBundle {
             scene: model_assets.tank_body.clone(),
-            transform: Transform::from_translation(pos).with_rotation(Quat::from_axis_angle(Vec3::Y, angle)),
+            transform: Transform::from_translation(pos)
+                .with_rotation(Quat::from_axis_angle(Vec3::Y, angle)),
             ..Default::default()
-    }).id();
+        })
+        .id();
 
     let (body, wheels) = create_body(
         body,
@@ -356,22 +364,21 @@ fn create_tank(
 
     let turret = commands
         .spawn_bundle(SceneBundle {
-                scene: model_assets.tank_turret.clone(),
-                transform: Transform::from_translation(Vec3::new(0.0, 0.10, 0.0)),
- //               visibility: visibility.clone(), 
-                ..Default::default()
+            scene: model_assets.tank_turret.clone(),
+            transform: Transform::from_translation(Vec3::new(0.0, 0.10, 0.0)),
+            //               visibility: visibility.clone(),
+            ..Default::default()
         })
         .insert(TankControlTurret::default())
         .id();
-
 
     commands.entity(body).add_child(turret);
 
     let cannon = commands
         .spawn_bundle(SceneBundle {
-                scene: model_assets.tank_cannon.clone(),
-                transform: Transform::from_translation(Vec3::new(0.0, 0.50, 0.45)),
-                ..Default::default()
+            scene: model_assets.tank_cannon.clone(),
+            transform: Transform::from_translation(Vec3::new(0.0, 0.50, 0.45)),
+            ..Default::default()
         })
         .insert(TankControlCannon::default())
         .id();
@@ -409,13 +416,23 @@ fn create_tank(
     */
     commands.entity(cannon).add_child(fire_point);
 
-    commands.entity(body).insert(PlayerData { handle: player_handle });
-    commands.entity(turret).insert(PlayerData { handle: player_handle });
-    commands.entity(cannon).insert(PlayerData { handle: player_handle });
-    commands.entity(fire_point).insert(PlayerData { handle: player_handle });
-    wheels
-        .iter()
-        .for_each(|wheel| { commands.entity(*wheel).insert(PlayerData { handle: player_handle }); });
+    commands.entity(body).insert(PlayerData {
+        handle: player_handle,
+    });
+    commands.entity(turret).insert(PlayerData {
+        handle: player_handle,
+    });
+    commands.entity(cannon).insert(PlayerData {
+        handle: player_handle,
+    });
+    commands.entity(fire_point).insert(PlayerData {
+        handle: player_handle,
+    });
+    wheels.iter().for_each(|wheel| {
+        commands.entity(*wheel).insert(PlayerData {
+            handle: player_handle,
+        });
+    });
 
     let data = TankEntityes {
         body,
@@ -425,35 +442,52 @@ fn create_tank(
         wheels,
     };
 
-    commands
-    .entity(body)
-    .insert(data);
+    commands.entity(body).insert(data);
 }
 
 pub fn update_body_position(
     local_handles: Res<LocalHandles>,
-    mut data_query: Query<(&GlobalTransform, ChangeTrackers<TankControlBody>, &TankControlBody, &mut ExternalImpulse, &mut Sleeping, &TankEntityes, &PlayerData )>,
-        //        &mut ExternalForce,  
-    mut out_data: ResMut<TankBodyOutData>,            
-    mut wheel_data_query: Query<&mut WheelData>,  
+    mut data_query: Query<(
+        &GlobalTransform,
+        ChangeTrackers<TankControlBody>,
+        &TankControlBody,
+        &mut ExternalImpulse,
+        &mut Sleeping,
+        &TankEntityes,
+        &PlayerData,
+    )>,
+    //        &mut ExternalForce,
+    mut out_data: ResMut<TankBodyOutData>,
+    mut wheel_data_query: Query<&mut WheelData>,
 ) {
-    for (global_transform, tank_control_body_tracker, tank_control_body, /*tank_control_data, mut forces,*/ mut impulse, mut sleeping, tank_entityes, player ) in data_query.iter_mut()
+    for (
+        global_transform,
+        tank_control_body_tracker,
+        tank_control_body,
+        /*tank_control_data, mut forces,*/ mut impulse,
+        mut sleeping,
+        tank_entityes,
+        player,
+    ) in data_query.iter_mut()
     {
         let (_scale, rotation, translation) = global_transform.to_scale_rotation_translation();
 
         if *local_handles.handles.first().unwrap() == player.handle {
-
             let new_pos = Vec2::new(translation.x, translation.z);
             let new_dir = rotation.to_euler(EulerRot::YXZ).0;
 
-            if !tank_control_body.movement.abs_diff_eq(out_data.movement, 0.01) ||
-                !new_pos.abs_diff_eq(out_data.pos, 0.01) ||
-                (out_data.dir - new_dir).abs() >= 1. {
-                    out_data.movement = tank_control_body.movement;
-                    out_data.pos = new_pos;
-                    out_data.dir = new_dir;
+            if !tank_control_body
+                .movement
+                .abs_diff_eq(out_data.movement, 0.01)
+                || !new_pos.abs_diff_eq(out_data.pos, 0.01)
+                || (out_data.dir - new_dir).abs() >= 1.
+            {
+                out_data.movement = tank_control_body.movement;
+                out_data.pos = new_pos;
+                out_data.dir = new_dir;
             }
-        } else { //correct body pos
+        } else {
+            //correct body pos
             let delta_pos = Vec3::new(
                 tank_control_body.pos.x - translation.x,
                 0.,
@@ -470,15 +504,16 @@ pub fn update_body_position(
             } * 10.;
 
             let current_body_dir = rotation.to_euler(EulerRot::YXZ).0;
-            let torque = calc_delta_angle(tank_control_body.dir, current_body_dir, 0.1)*10.;
+            let torque =
+                calc_delta_dir(tank_control_body.dir, current_body_dir, 3. * PI / 180.) * 10.;
 
-    //       log::info!("tank mod update_body_position current_dir: {}; from_net.dir: {}; torque: {}", 
-    //       current_body_dir, tank_control_body.dir, torque);
+            //       log::info!("tank mod update_body_position current_dir: {}; from_net.dir: {}; torque: {}",
+            //       current_body_dir, tank_control_body.dir, torque);
 
             impulse.torque_impulse = rotation.mul_vec3(Vec3::Y * torque);
         }
 
-        if tank_control_body_tracker.is_changed() {        
+        if tank_control_body_tracker.is_changed() {
             let wheel_data_movement = if tank_control_body.movement.length_squared() > 0.001 {
                 sleeping.linear_threshold = -1.;
                 sleeping.angular_threshold = -1.;
@@ -488,12 +523,13 @@ pub fn update_body_position(
                 sleeping.linear_threshold = 1.;
                 sleeping.angular_threshold = 10.;
                 sleeping.sleeping = true;
-    //          sleeping.default();
+                //          sleeping.default();
                 None
             };
 
             for wheel in &tank_entityes.wheels {
-                if let Ok(mut wheel_data) = wheel_data_query.get_component_mut::<WheelData>(*wheel) {           
+                if let Ok(mut wheel_data) = wheel_data_query.get_component_mut::<WheelData>(*wheel)
+                {
                     wheel_data.movement = wheel_data_movement.clone();
 
                     //           println!("player prep_wheel_input, ok");
@@ -503,7 +539,7 @@ pub fn update_body_position(
     }
 }
 
-pub fn calc_delta_angle(new_dir: f32, old_dir: f32, max_delta: f32) -> f32 {
+pub fn calc_delta_dir(new_dir: f32, old_dir: f32, max_delta: f32) -> f32 {
     let mut delta = new_dir - old_dir;
 
     let res = if delta.abs() > max_delta {
@@ -523,6 +559,29 @@ pub fn calc_delta_angle(new_dir: f32, old_dir: f32, max_delta: f32) -> f32 {
     res
 }
 
+pub fn calc_dir(dir: f32, old_dir: f32, rot_speed: f32, delta_time: f32) -> f32 {
+    let delta = calc_delta_dir(dir, old_dir, rot_speed * delta_time); 
+    let new_dir = dir + delta*0.7;//TODO implement ping time
+
+ //   log::info!("Tank calc_dir dir:{:?} old_dir:{:?} rot_speed:{:?} delta_time:{:?} delta:{:?} new_dir:{:?}",
+ //       dir, old_dir, rot_speed, delta_time, delta, new_dir );
+
+    normalize(new_dir)
+}
+
+pub fn normalize(mut dir: f32) -> f32 {
+    if dir.abs() > std::f32::consts::PI {
+        dir -= std::f32::consts::TAU;
+    }
+
+    if dir.abs() < -std::f32::consts::PI {
+        dir += std::f32::consts::TAU;
+    }
+
+    dir
+}
+
+
 pub fn update_turret_rotation(
     time: Res<Time>,
     local_handles: Res<LocalHandles>,
@@ -531,33 +590,31 @@ pub fn update_turret_rotation(
 ) {
     for (mut transform, tank_control_turret, player) in query.iter_mut() {
 
-        let mut delta_angle = 0.;
+        let rot_speed = -0.5 * PI * tank_control_turret.speed;
 
-        let rot_speed = 0.5 * PI * tank_control_turret.speed;
+        let old_dir = transform.rotation.to_euler(EulerRot::YXZ).0;
 
-        let angle = transform.rotation.to_euler(EulerRot::YXZ).0;
-
-        if *local_handles.handles.first().unwrap() != player.handle {
-            delta_angle = calc_delta_angle(
+        let new_dir = if *local_handles.handles.first().unwrap() != player.handle {
+            calc_dir(
                 tank_control_turret.dir,
-                transform.rotation.to_euler(EulerRot::YXZ).0,
-                0.1)*30.* time.delta_seconds();
+                old_dir,
+                rot_speed,
+                time.delta_seconds(),
+            ) //*1.*time.delta_seconds();
         } else {
-            if (out_data.speed - rot_speed).abs() >= 0.1 ||
-                (out_data.dir - angle).abs() >= 1. {
-                    out_data.speed = rot_speed; 
-                    out_data.dir = angle; 
+            if (out_data.speed - rot_speed).abs() * 180. / PI >= 1.
+                || (out_data.dir - old_dir).abs() * 180. / PI >= 1.
+            {
+                out_data.speed = rot_speed;
+                out_data.dir = old_dir;
+  //              log::info!( "Tank turret out speed:{:?} dir:{:?}", out_data.speed, out_data.dir);
             }
-        }
 
-        delta_angle -= rot_speed * time.delta_seconds();
-        //         dbg![cross, dot, dot3, move_dir.angle_between(Game_transform.forward())];
-        //          dbg![transform.rotation.to_euler(EulerRot::YXZ).0, tank_control_turret.dir, rotation, delta_angle];
+            normalize(old_dir + rot_speed * time.delta_seconds())
+        };
 
-        if delta_angle != 0. {
-   //         let up = transform.up();
-  //          transform.rotate(Quat::from_axis_angle(up, delta_angle));
-            transform.rotation = Quat::from_axis_angle(Vec3::Y, angle + delta_angle);
+        if new_dir != old_dir {
+            transform.rotation = Quat::from_axis_angle(Vec3::Y, new_dir);
         }
     }
 }
@@ -570,37 +627,41 @@ pub fn update_cannon_rotation(
 ) {
     for (mut transform, tank_control_cannon, player) in query.iter_mut() {
 
-        let mut delta_angle = 0.;
+        let rot_speed = -0.1 * PI * tank_control_cannon.speed;
 
-        let rot_speed = 0.1 * PI * tank_control_cannon.speed;
+        let old_dir = transform.rotation.to_euler(EulerRot::XYZ).0;
 
-        let angle = transform.rotation.to_euler(EulerRot::XYZ).0;
-
-        if *local_handles.handles.first().unwrap() != player.handle {
-            delta_angle = calc_delta_angle(
+        let mut new_dir = if *local_handles.handles.first().unwrap() != player.handle {
+            calc_dir(
                 tank_control_cannon.dir,
-                angle,
-                0.1) * 1.* time.delta_seconds();
+                old_dir,
+                rot_speed,
+                time.delta_seconds(),
+            ) 
         } else {
-            if (out_data.speed - rot_speed).abs() >= 0.1 ||
-            (out_data.dir - angle).abs() >= 1. {
-                out_data.speed = rot_speed; 
-                out_data.dir = angle; 
+            if (out_data.speed - rot_speed).abs() * 180. / PI >= 1.
+                || (out_data.dir - old_dir).abs() * 180. / PI >= 1.
+            {
+                out_data.speed = rot_speed;
+                out_data.dir = old_dir;
+ //               log::info!( "Tank cannon out speed:{:?} dir:{:?}", out_data.speed, out_data.dir );
             }
-        }
-         
-        delta_angle -= rot_speed * time.delta_seconds();
 
-        if (angle < -0.7 && delta_angle < 0.) || (angle > 0.1 && delta_angle > 0.) {
-                return;
-        }
-           //         dbg![cross, dot, dot3, move_dir.angle_between(Game_transform.forward())];
+            normalize(old_dir + rot_speed * time.delta_seconds())
+        };
 
-        if delta_angle != 0. {
-        //    let point = transform.back() * 0.1 + transform.up() * 0.2; //back
-        //    let right = transform.right();
-        //    transform.rotate_around(point, Quat::from_axis_angle(right, delta_angle));
-            transform.rotation = Quat::from_axis_angle(Vec3::X, angle + delta_angle);
+        if (new_dir < -0.7) {
+            new_dir = -0.7;
+        }
+
+        if (new_dir > 0.7) {
+            new_dir = 0.7;
+        }
+
+        //         dbg![cross, dot, dot3, move_dir.angle_between(Game_transform.forward())];
+
+        if new_dir != old_dir {
+            transform.rotation = Quat::from_axis_angle(Vec3::X, new_dir);
         }
     }
 }
@@ -611,8 +672,7 @@ pub fn update_cannon_debug_line(
 ) {
     for (global_transform, shot_data, shot_action) in query.iter() {
         //    if let Ok((global_transform, cannon_shot_data)) = query.get_single() {
-        let shot_speed = shot_data.shot_speed_delta * shot_action.time
-            + shot_data.shot_speed_min;
+        let shot_speed = shot_data.shot_speed_delta * shot_action.time + shot_data.shot_speed_min;
 
         let mut pos = global_transform.translation();
         let mut dir = global_transform.back() * shot_speed;
@@ -634,11 +694,15 @@ pub fn update_cannon_shot(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     local_handles: Res<LocalHandles>,
-    mut query: Query<(&GlobalTransform, &TankShotData, &mut TankControlActionShot, &PlayerData)>,
+    mut query: Query<(
+        &GlobalTransform,
+        &TankShotData,
+        &mut TankControlActionShot,
+        &PlayerData,
+    )>,
     mut shot_control: ResMut<TankShotOutData>,
 ) {
-
-    let mut shot_pos;    
+    let mut shot_pos;
     let mut shot_vel;
 
     for (global_transform, shot_data, mut shot_action, player) in query.iter_mut() {
@@ -650,8 +714,8 @@ pub fn update_cannon_shot(
                 continue;
             }
 
-            let shot_speed = shot_data.shot_speed_min
-                + shot_data.shot_speed_delta * shot_action.time;
+            let shot_speed =
+                shot_data.shot_speed_min + shot_data.shot_speed_delta * shot_action.time;
             //           dbg![shot_speed, global_transform];
 
             shot_pos = global_transform.translation();
@@ -668,7 +732,7 @@ pub fn update_cannon_shot(
             shot_pos = shot_action.pos;
             shot_vel = shot_action.vel;
 
-   //         cannon_shot_data.is_shot = false;
+            //         cannon_shot_data.is_shot = false;
         }
 
         shot_action.is_shot = false;
@@ -692,6 +756,7 @@ pub fn update_cannon_shot(
                 ..default()
             })
             .insert(ShotData::new(shot_data.shot_live_max_time, shot_data.explosion_force))
+            .insert(player.clone())
             .insert(bevy_rapier3d::prelude::RigidBody::Dynamic)
             .insert(bevy_rapier3d::prelude::Collider::ball(0.02))
             //                .insert_bundle(collider)

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, marker::PhantomData};
 
-use ::std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 
 use crate::AppState;
 use bevy::prelude::*;
@@ -15,13 +15,15 @@ impl<T> Plugin for InputPlugin<T>
 where T: 'static + Send + Sync + Default + Debug + Eq + Hash + Clone + TryFrom<u16> + TryInto<u16> {
     fn build(&self, app: &mut App) {
         let before_system_set = SystemSet::on_update(AppState::Playing)
-            .with_system(update_input::<T>);//.before(rotate_turret_by_key));
+            .with_system(update_input::<T>);
 
         app
             .init_resource::<GameControl<T>>()
-//            .add_system_set_to_stage(CoreStage::PreUpdate, 
-//                                    State::<AppState>::get_driver())
-            .add_system_set_to_stage(CoreStage::PreUpdate, before_system_set)
+            .add_system_set_to_stage(
+                CoreStage::PreUpdate,
+                before_system_set
+                .label("keys_input")
+                .before("player_input"))
         ;
     }
 }
@@ -100,15 +102,7 @@ where T: 'static + Send + Sync + Default + Debug + Eq + Hash + Clone + TryFrom<u
                 shift += 1;
             }
         }
-/*      
-        for (actions, values) in &self.states {            
-            res |= match values {
-                KeyState::JustPressed | KeyState::Pressed => 1,
-                _ => 0,
-            } << shift;
-            shift += 1;
-        }
-*/
+
         res
     }
 
@@ -144,15 +138,6 @@ where T: 'static + Send + Sync + Default + Debug + Eq + Hash + Clone + TryFrom<u
                 self.states.insert(action.clone(), new_state);
             }
         }
-/*      
-        for (actions, values) in &self.states {            
-            res |= match values {
-                KeyState::JustPressed | KeyState::Pressed => 1,
-                _ => 0,
-            } << shift;
-            shift += 1;
-        }
-*/
     }
 
     fn obr_input (&mut self, keyboard_input: &Res<Input<KeyCode>>) {

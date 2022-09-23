@@ -13,6 +13,7 @@ use iyes_loopless::prelude::*;
 
 use peer::NetworkEvent;
 
+use crate::explosion::{ExplosionNetData, OutExplosion, InExplosion};
 use crate::menu::is_play_online;
 use crate::player::PlayerHandle;
 use crate::tank::*;
@@ -64,13 +65,14 @@ pub struct NetInput {
 }
 */
 
-
+#[repr(C)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum GameMessage {
     BodyMove(TankBodyOutData),
     TurretRotate(TankTurretOutData),
     CannonRotate(TankCannonOutData),
     Shot(TankShotOutData),
+    Explosion(OutExplosion),
 }
 
 pub type GameEvent = NetworkEvent<GameMessage>;
@@ -94,7 +96,6 @@ pub struct InCannon {
 pub struct InShot {
     pub data: HashMap<PlayerHandle, TankShotOutData>,
 }
-
 
 pub struct NetPlugin;
 
@@ -122,7 +123,8 @@ impl Plugin for NetPlugin {
             .insert_resource( InTurret{data: HashMap::new()} )
             .insert_resource( InCannon{data: HashMap::new()} )
             .insert_resource( InShot{data: HashMap::new()} )
-            .add_system_set(
+            .insert_resource( InExplosion{data: HashMap::new()} )
+              .add_system_set(
                 SystemSet::on_enter(AppState::Connecting).with_system(setup_network.label("net_setup")),
             )
             .add_system_set(
@@ -138,6 +140,7 @@ impl Plugin for NetPlugin {
                 .with_system(send_out_turret.run_if(is_play_online))
                 .with_system(send_out_cannon.run_if(is_play_online))
                 .with_system(send_out_shot.run_if(is_play_online))
+                .with_system(send_out_explosion.run_if(is_play_online))
             )
             .add_system_set(
                 ConditionSet::new()
@@ -264,10 +267,14 @@ pub struct InShot {
 pub fn handle_conn_events(
     mut new_handles: ResMut<NewNetHandles>,
     mut handles: ResMut<NetHandles>,
-    mut body: ResMut<InBody>,
-    mut turret: ResMut<InTurret>,
-    mut cannon: ResMut<InCannon>,
-    mut shot: ResMut<InShot>,
+    mut in_body: ResMut<InBody>,
+    mut in_turret: ResMut<InTurret>,
+    mut in_cannon: ResMut<InCannon>,
+    mut in_shot: ResMut<InShot>,
+    mut explosion: ResMut<InExplosion>,
+    mut out_body: ResMut<TankBodyOutData>,
+    mut out_turret: ResMut<TankTurretOutData>,
+    mut out_cannon: ResMut<TankCannonOutData>,
     from_server: Res<Arc<Mutex<mpsc::Receiver<GameEvent>>>>,
 ) {
 //    log::info!("net handle_conn_events start");
@@ -276,6 +283,9 @@ pub fn handle_conn_events(
     if let Ok(msg) = from_server.lock().unwrap().try_recv() {
         match msg {
             peer::NetworkEvent::NewConnection(_peer_id) => {
+                out_body.set_changed();
+                out_turret.set_changed(); //TODO
+                out_cannon.set_changed(); //TODO
             }
 
             peer::NetworkEvent::Event(peer_id, mess) => {               
@@ -296,16 +306,21 @@ pub fn handle_conn_events(
 
                 if let GameMessage::BodyMove(data) = mess {
                     log::info!("Network handle_conn_events TankBodyOutData");
-                    body.data.insert(handle, data);
+                    in_body.data.insert(handle, data);
                 } else if let GameMessage::TurretRotate(data) = mess {
                     log::info!("Network handle_conn_events TankTurretOutData");
-                    turret.data.insert(handle, data);
+                    in_turret.data.insert(handle, data);
                 } else if let GameMessage::CannonRotate(data) = mess {
                     log::info!("Network handle_conn_events TankCannonOutData");
-                    cannon.data.insert(handle, data);
+                    in_cannon.data.insert(handle, data);
                 } else if let GameMessage::Shot(data) = mess {
                     log::info!("Network handle_conn_events TankShotOutData");
-                    shot.data.insert(handle, data);
+                    in_shot.data.insert(handle, data);
+                }   else if let GameMessage::Explosion(data_array) = mess {
+                    log::info!("Network handle_conn_events ExplosionOutDataArray");
+                    for data in data_array.data {
+                        explosion.data.insert(handle, data);
+                    }
                 }
             }
         }
@@ -313,47 +328,7 @@ pub fn handle_conn_events(
 
  //   log::info!("net handle_conn_events end");
 }
-/* 
-pub fn send_out(
-    body_data: Res<TankBodyOutData>,
-    turret_control: Res<TankTurretOutData>,
-    cannon_control: Res<TankCannonOutData>,
-    shot_control: Res<TankShotOutData>,
-    to_server: ResMut<mpsc::Sender<GameMessage>>,
-) {
-    let out_data = GameMessage {
-        body_movement_x: body_data.movement.x,
-        body_movement_y: body_data.movement.y,
-        body_pos_x: body_data.pos.x,
-        body_pos_y: body_data.pos.y,
-        body_dir: body_data.dir,
 
-        turret_speed: turret_control.speed,
-        turret_dir: turret_control.dir,
-
-        cannon_speed: cannon_control.speed,
-        cannon_dir: cannon_control.dir,
-
-        is_shot: if shot_control.is_shot { 1 } else { 0 },
-        shot_pos: shot_control.pos,
-        shot_vel: shot_control.vel,
-
-        ..default()
-    };
-
-    // Do not allow inputs for the first while.
- //   if game_state.frame > (FPS * LOAD_SECONDS) as u32 {
- //       res.inp = game_control.get_key_states();
- //   }
-
-    //   log::info!("net input x:{} y:{} dir:{}", body_control.pos.x, body_control.pos.y, body_control.dir);
-
-    let res = to_server.try_send(out_data);
-
-    log::info!("Network send_out {:?}", res);
-
-}
-*/
 pub fn send_out_body(
     data: Res<TankBodyOutData>,
     to_server: ResMut<mpsc::Sender<GameMessage>>,
@@ -393,3 +368,14 @@ pub fn send_out_shot(
         log::info!("Network send_out_shot {:?}", res);
     }
 }
+
+pub fn send_out_explosion(
+    data: Res<OutExplosion>,
+    to_server: ResMut<mpsc::Sender<GameMessage>>,
+) {
+    if data.is_changed() {
+        let res = to_server.try_send(GameMessage::Explosion(data.to_owned()));
+        log::info!("Network send_out_explosion {:?}", res);
+    }
+}
+

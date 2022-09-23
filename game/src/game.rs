@@ -1,10 +1,7 @@
-use std::collections::HashMap;
-
+use rand::prelude::*;
 use bevy::prelude::*;
 use bevy_prototype_debug_lines::*;
-
 use bevy_rapier3d::prelude::*;
-
 use iyes_loopless::prelude::*;
 
 use crate::explosion::*;
@@ -315,11 +312,15 @@ pub fn start_game(
             ..default()
         });
     */
-    if let Some(pos) = get_pos_on_ground(Vec3::new(0., 0., 0.), &rapier_context) {
+    let mut rng = thread_rng();
+
+    let start_pos = Vec3::new(rng.gen_range(-6.0..6.0), 0., rng.gen_range(-6.0..6.0));
+
+    if let Some(pos) = get_pos_on_ground(start_pos, &rapier_context) {
         tank_data.vector.push(NewTank {
             handle,
             pos: Vec3::new(pos.x, pos.y + 1., pos.z),
-            angle: 0.,
+            angle: rng.gen_range(-std::f32::consts::PI..std::f32::consts::PI),
         });
     }
 
@@ -349,8 +350,11 @@ fn obr_new_handles(
     new_handles.handles.clear();
 }
 
-fn obr_in_body(mut input: ResMut<InBody>, mut body: Query<(&mut TankControlBody, &PlayerData)>) {
-    for (mut body, player) in body.iter_mut() {
+fn obr_in_body(
+    mut input: ResMut<InBody>, 
+    mut query: Query<(&mut TankControlBody, &PlayerData)>
+) {
+    for (mut body, player) in query.iter_mut() {
         if let Some(data) = input.data.get(&player.handle) {
             body.movement.x = data.movement.x;
             body.movement.y = data.movement.y;
@@ -367,12 +371,13 @@ fn obr_in_body(mut input: ResMut<InBody>, mut body: Query<(&mut TankControlBody,
 
 fn obr_in_turret(
     mut input: ResMut<InTurret>,
-    mut turret: Query<(&mut TankControlTurret, &PlayerData)>,
+    mut query: Query<(&mut TankControlTurret, &PlayerData)>,
 ) {
-    for (mut turret, player) in turret.iter_mut() {
+    for (mut turret, player) in query.iter_mut() {
         if let Some(data) = input.data.get(&player.handle) {
             turret.speed = data.speed;
             turret.dir = data.dir;
+            log::info!("game obr_in_turret in speed:{:?} dir:{:?}", turret.speed, turret.dir);
         }
     }
 
@@ -381,12 +386,13 @@ fn obr_in_turret(
 
 fn obr_in_cannon(
     mut input: ResMut<InCannon>,
-    mut cannon: Query<(&mut TankControlCannon, &PlayerData)>,
+    mut query: Query<(&mut TankControlCannon, &PlayerData)>,
 ) {
-    for (mut cannon, player) in cannon.iter_mut() {
+    for (mut cannon, player) in query.iter_mut() {
         if let Some(data) = input.data.get(&player.handle) {
             cannon.speed = data.speed;
             cannon.dir = data.dir;
+            log::info!("game obr_in_cannon in speed:{:?} dir:{:?}", cannon.speed, cannon.dir);
         }
     }
 
@@ -395,9 +401,9 @@ fn obr_in_cannon(
 
 fn obr_in_shot(
     mut input: ResMut<InShot>,
-    mut shot: Query<(&mut TankControlActionShot, &PlayerData)>,
+    mut query: Query<(&mut TankControlActionShot, &PlayerData)>,
 ) {
-    for (mut shot, player) in shot.iter_mut() {
+    for (mut shot, player) in query.iter_mut() {
         if let Some(data) = input.data.get(&player.handle) {
             if data.is_shot {
                 shot.is_shot = data.is_shot;
@@ -409,3 +415,5 @@ fn obr_in_shot(
 
     input.data.clear();
 }
+
+

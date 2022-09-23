@@ -185,9 +185,11 @@ fn create_gltf_entity(
         .and_then(|mesh| gltf_meshes.get(mesh))
         .and_then(|mesh| mesh.primitives.first());
 
-    if let Some(primitive) = primitive && 
-        let Some(material) = primitive.material.as_ref() {
+    if primitive.is_some() && 
+        primitive.unwrap().material.as_ref().is_some() {
   //          println!("terrain create_gltf_entity primitive.material ok"); 
+            let primitive = primitive.unwrap();
+            let material = primitive.material.as_ref().unwrap();
 
             return Some(commands.spawn_bundle(PbrBundle {
                     mesh: primitive.mesh.clone(),

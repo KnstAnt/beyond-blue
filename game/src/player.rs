@@ -17,7 +17,7 @@ use super::tank::{
 
 pub type PlayerHandle = usize;
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Component)]
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub struct PlayerData {
     pub handle: PlayerHandle,
 }
@@ -34,13 +34,6 @@ impl Default for LocalHandles {
         }
     }
 }
-
-
-const BLUE: Color = Color::rgb(0.8, 0.6, 0.2);
-const ORANGE: Color = Color::rgb(0., 0.35, 0.8);
-const MAGENTA: Color = Color::rgb(0.9, 0.2, 0.2);
-const GREEN: Color = Color::rgb(0.35, 0.7, 0.35);
-pub const PLAYER_COLORS: [Color; 4] = [BLUE, ORANGE, MAGENTA, GREEN];
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 #[repr(u16)]
@@ -110,23 +103,23 @@ impl Plugin for PlayerPlugin {
         let before_system_set = SystemSet::on_update(AppState::Playing)
             .with_system(
                 crate::player::prep_wheel_input
- //                   .label(InputLabel::PrepInput)
- //                   .after(InputLabel::GetInput),
+                    .label("player_input")
+                    .after("keys_input"),
             )
             .with_system(
                 crate::player::prep_turret_input
-  //                  .label(InputLabel::PrepInput)
-  //                  .after(InputLabel::GetInput),
+                    .label("player_input")
+                    .after("keys_input"),
             )
             .with_system(
                 crate::player::prep_cannon_input
- //                   .label(InputLabel::PrepInput)
- //                   .after(InputLabel::GetInput),
+                    .label("player_input")
+                    .after("keys_input"),
             )
             .with_system(
                 crate::player::prep_shot_input
-   //                 .label(InputLabel::PrepInput)
-   //                 .after(InputLabel::GetInput),
+                    .label("player_input")
+                    .after("keys_input"),
             );
 
         app
