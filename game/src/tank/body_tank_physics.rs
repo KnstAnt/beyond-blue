@@ -558,7 +558,7 @@ pub fn update_body_moving(
     let multipler = 10.;
     let factor = 0.1; //if velosity_left != 0. && velosity_right != 0. { 0.1 } else { 2.0 };
 
-    for (entity, transform, tracker, wheel_data) in entity_query.iter() {
+    for (entity, _transform, tracker, wheel_data) in entity_query.iter() {
         if !tracker.is_changed() {
             continue;
         }

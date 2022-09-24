@@ -63,7 +63,7 @@ impl Data {
                 Duration::from_secs_f32(live_max_time),
                 false,
             ), 
-            explosion_radius: explosion_force.powf(0.25), 
+            explosion_radius: explosion_force.powf(0.333333), 
             explosion_force,
         }
     }
@@ -79,7 +79,7 @@ fn handle_explosion_events(
     query: Query<(&GlobalTransform, Entity, &Data, &PlayerData)>,
 ) {
     for event in events.iter() {
-        if let bevy_rapier3d::prelude::CollisionEvent::Started(e1, e2, f) = event {
+        if let bevy_rapier3d::prelude::CollisionEvent::Started(e1, e2, _f) = event {
             for (global_transform, entity, shot_data, player) in query.iter() {
                 /*           match event {
                                 bevy_rapier3d::prelude::CollisionEvent::Started(e1, e2, f)

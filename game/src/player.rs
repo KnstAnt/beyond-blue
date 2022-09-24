@@ -229,14 +229,14 @@ pub fn prep_turret_input(
 
             if let Some(key_state) = game_control.get_key_state(Actions::TurretLeft) {
                 rotation_from_control += match key_state {
-                    KeyState::JustPressed | KeyState::Pressed => -1.,
+                    KeyState::JustPressed | KeyState::Pressed => 1.,
                     _ => 0.,
                 }
             }
 
             if let Some(key_state) = game_control.get_key_state(Actions::TurretRight) {
                 rotation_from_control += match key_state {
-                    KeyState::JustPressed | KeyState::Pressed => 1.,
+                    KeyState::JustPressed | KeyState::Pressed => -1.,
                     _ => 0.,
                 }
             }
@@ -279,14 +279,14 @@ pub fn prep_cannon_input(
 
             if let Some(key_state) = game_control.get_key_state(Actions::CannonUp) {
                 rotation_from_control += match key_state {
-                    KeyState::JustPressed | KeyState::Pressed => 1.,
+                    KeyState::JustPressed | KeyState::Pressed => -1.,
                     _ => 0.,
                 }
             }
 
             if let Some(key_state) = game_control.get_key_state(Actions::CannonDown) {
                 rotation_from_control += match key_state {
-                    KeyState::JustPressed | KeyState::Pressed => -1.,
+                    KeyState::JustPressed | KeyState::Pressed => 1.,
                     _ => 0.,
                 }
             }

@@ -145,6 +145,8 @@ pub fn add_explosion(
         .insert(bevy_rapier3d::prelude::ActiveEvents::COLLISION_EVENTS)
         .insert(CollisionGroups::new(0b1000, 0b0011))
         .insert(SolverGroups::new(0b1000, 0b0011));
+        // TODO  add a lot of ball for emulation explosion
+
     //    info!("add_explosion finished");
 }
 

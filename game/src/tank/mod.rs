@@ -12,7 +12,7 @@ use iyes_loopless::prelude::*;
 use crate::{
     loading::ModelAssets,
     player::{LocalHandles, PlayerData, PlayerHandle},
-    AppState, shot::TankShotOutData, menu::is_play_online,
+    AppState, shot::TankShotOutData, menu::is_play_online, network::PingList,
 };
 
 use crate::shot::Data as ShotData;
@@ -550,11 +550,8 @@ pub fn calc_delta_dir(new_dir: f32, old_dir: f32, max_delta: f32) -> f32 {
             delta = -delta;
         }
 
-        if delta.is_sign_positive() {
-            max_delta
-        } else {
-            -max_delta
-        }
+        max_delta*delta.signum()
+
     } else {
         delta
     };
@@ -564,10 +561,10 @@ pub fn calc_delta_dir(new_dir: f32, old_dir: f32, max_delta: f32) -> f32 {
 
 pub fn calc_dir(dir: f32, old_dir: f32, rot_speed: f32, delta_time: f32) -> f32 {
     let delta = calc_delta_dir(dir, old_dir, rot_speed * delta_time); 
-    let new_dir = dir + delta*0.7;//TODO implement ping time
+    let new_dir = dir + delta;//TODO implement ping time
 
- //   log::info!("Tank calc_dir dir:{:?} old_dir:{:?} rot_speed:{:?} delta_time:{:?} delta:{:?} new_dir:{:?}",
- //       dir, old_dir, rot_speed, delta_time, delta, new_dir );
+  //  log::info!("Tank calc_dir dir:{:?} old_dir:{:?} rot_speed:{:?} delta_time:{:?} delta:{:?} new_dir:{:?}",
+  //      dir, old_dir, rot_speed, delta_time, delta, new_dir );
 
     normalize(new_dir)
 }
@@ -587,13 +584,14 @@ pub fn normalize(mut dir: f32) -> f32 {
 
 pub fn update_turret_rotation(
     time: Res<Time>,
+    ping: Res<PingList>,
     local_handles: Res<LocalHandles>,
     mut query: Query<(&mut Transform, &TankControlTurret, &PlayerData)>,
     mut out_data: ResMut<TankTurretOutData>,
 ) {
     for (mut transform, tank_control_turret, player) in query.iter_mut() {
 
-        let rot_speed = -0.5 * PI * tank_control_turret.speed;
+        let rot_speed = 0.5 * PI * tank_control_turret.speed;
 
         let old_dir = transform.rotation.to_euler(EulerRot::YXZ).0;
 
@@ -602,18 +600,20 @@ pub fn update_turret_rotation(
                 tank_control_turret.dir,
                 old_dir,
                 rot_speed,
-                time.delta_seconds(),
+                ping.get_time(player.handle),
             ) //*1.*time.delta_seconds();
         } else {
+            let tmp_dir = normalize(old_dir + rot_speed * time.delta_seconds());
+
             if (out_data.speed - rot_speed).abs() * 180. / PI >= 1.
-                || (out_data.dir - old_dir).abs() * 180. / PI >= 1.
+                || (out_data.dir - tmp_dir).abs() * 180. / PI >= 1.
             {
                 out_data.speed = rot_speed;
-                out_data.dir = old_dir;
+                out_data.dir = tmp_dir;
   //              log::info!( "Tank turret out speed:{:?} dir:{:?}", out_data.speed, out_data.dir);
             }
 
-            normalize(old_dir + rot_speed * time.delta_seconds())
+            tmp_dir
         };
 
         if new_dir != old_dir {
@@ -624,13 +624,14 @@ pub fn update_turret_rotation(
 
 pub fn update_cannon_rotation(
     time: Res<Time>,
+    ping: Res<PingList>,
     local_handles: Res<LocalHandles>,
     mut query: Query<(&mut Transform, &TankControlCannon, &PlayerData)>,
     mut out_data: ResMut<TankCannonOutData>,
 ) {
     for (mut transform, tank_control_cannon, player) in query.iter_mut() {
 
-        let rot_speed = -0.1 * PI * tank_control_cannon.speed;
+        let rot_speed = 0.1 * PI * tank_control_cannon.speed;
 
         let old_dir = transform.rotation.to_euler(EulerRot::XYZ).0;
 
@@ -639,25 +640,27 @@ pub fn update_cannon_rotation(
                 tank_control_cannon.dir,
                 old_dir,
                 rot_speed,
-                time.delta_seconds(),
+                ping.get_time(player.handle),
             ) 
         } else {
+            let tmp_dir = normalize(old_dir + rot_speed * time.delta_seconds());
+
             if (out_data.speed - rot_speed).abs() * 180. / PI >= 1.
                 || (out_data.dir - old_dir).abs() * 180. / PI >= 1.
             {
                 out_data.speed = rot_speed;
-                out_data.dir = old_dir;
+                out_data.dir = tmp_dir;
  //               log::info!( "Tank cannon out speed:{:?} dir:{:?}", out_data.speed, out_data.dir );
             }
 
-            normalize(old_dir + rot_speed * time.delta_seconds())
+            tmp_dir
         };
 
-        if (new_dir < -0.7) {
+        if new_dir < -0.7 {
             new_dir = -0.7;
         }
 
-        if (new_dir > 0.7) {
+        if new_dir > 0.7 {
             new_dir = 0.7;
         }
 
@@ -704,6 +707,7 @@ pub fn update_cannon_shot(
         &PlayerData,
     )>,
     mut shot_control: ResMut<TankShotOutData>,
+    ping: Res<PingList>,
 ) {
     let mut shot_pos;
     let mut shot_vel;
@@ -732,7 +736,7 @@ pub fn update_cannon_shot(
                 continue;
             }
 
-            shot_pos = shot_action.pos;
+            shot_pos = shot_action.pos + shot_action.vel*ping.get_time(player.handle);
             shot_vel = shot_action.vel;
 
             //         cannon_shot_data.is_shot = false;

@@ -165,23 +165,18 @@ fn on_terrain_complete(mut playing_scene: ResMut<PlayingScene>) {
 }
 
 fn setup_dynamic(
-    //   mut commands: Commands,
+ //   mut commands: Commands,
     mut state: ResMut<State<AppState>>,
     mut playing_scene: ResMut<PlayingScene>,
-    //   rapier_context: Res<RapierContext>,
+//    rapier_context: Res<RapierContext>,
     //   model_assets: Res<ModelAssets>,
-    //  mut meshes: ResMut<Assets<Mesh>>,
-    //    mut materials: ResMut<Assets<StandardMaterial>>,
+ //     mut meshes: ResMut<Assets<Mesh>>,
+ //       mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    /*
-         if get_pos_on_ground(Vec3::new(0., 0., 0.), &rapier_context).is_none() {
-            return;
-        }
-
-        println!("Game setup_dynamic start");
-
-        let start_pos_x = 0.0;
-        let start_pos_z = 0.0;
+    println!("Game setup_dynamic start");
+/*
+    let start_pos_x = 0.0;
+    let start_pos_z = 0.0;
 
 
         let body_pos = get_pos_on_ground(
@@ -213,7 +208,7 @@ fn setup_dynamic(
                 let half_size = size/2. + 0.1;
                 commands
                     .spawn_bundle(PbrBundle {
-                        mesh: meshes.add(Mesh::from(Cube::new(half_size*2.))),
+                        mesh: meshes.add(Mesh::from(shape::Cube::new(half_size*2.))),
                         material: materials.add(Color::BLACK.into()),
                         transform: Transform::from_translation(
                             get_pos_on_ground(
@@ -238,7 +233,7 @@ fn setup_dynamic(
                 //                    .insert(PathObstacle);
             }
         }
-    */
+ */   
     println!("Game setup_dynamic complete");
     playing_scene.playing_state = PlayingState::Complete;
     state.replace(AppState::Playing).unwrap();
@@ -277,9 +272,13 @@ fn display_events(mut collision_events: EventReader<bevy_rapier3d::prelude::Coll
 }
 
 pub fn start_game(
+    mut commands: Commands,    
     rapier_context: Res<RapierContext>,
     local_handles: Res<LocalHandles>,
     mut tank_data: ResMut<NewTanksData>,
+    //   model_assets: Res<ModelAssets>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     println!("Game start_game start");
 
@@ -300,6 +299,46 @@ pub fn start_game(
             pos: Vec3::new(pos.x, pos.y + 1., pos.z),
             angle: rng.gen_range(-std::f32::consts::PI..std::f32::consts::PI),
         });
+
+        
+    let start_pos_x = 0.0;
+    let start_pos_z = 0.0;
+
+        let mut rng = rand::thread_rng();
+    //    let y: f64 = rng.gen(); // generates a float between 0 and 1
+
+        // Spawn obstacles
+        for x in -4..=4 {
+            for z in -4..=4 {
+                let size: f32 = rng.gen();
+                let half_size = size/2. + 0.1;
+                commands
+                    .spawn_bundle(PbrBundle {
+                        mesh: meshes.add(Mesh::from(shape::Cube::new(half_size*2.))),
+                        material: materials.add(Color::BLACK.into()),
+                        transform: Transform::from_translation(
+                            get_pos_on_ground(
+                                Vec3::new(
+                                    start_pos_x + x as f32 * 2.0,
+                                    half_size,
+                                    start_pos_z + z as f32 * 2.0,
+                                ),
+                                &rapier_context,
+                            )
+                            .unwrap(),
+                        ),
+                        ..Default::default()
+                    })
+                    .insert(bevy_rapier3d::prelude::RigidBody::Dynamic)
+                    .insert(bevy_rapier3d::prelude::Collider::cuboid(half_size, half_size, half_size))
+                    .insert(CollisionGroups::new(0b0010, 0b1111))
+                    .insert(SolverGroups::new(0b0010, 0b1111))
+                    .insert(Restitution::coefficient(0.7))
+                    .insert(ColliderMassProperties::Density(1.0));
+                //                .insert(Transform::from_xyz(x as f32 * 4.0, 0.5, z as f32 * 4.0))
+                //                    .insert(PathObstacle);
+            }
+        }
     }
 
     println!("Game start_game complete, handle:{}", handle);
