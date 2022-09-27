@@ -19,6 +19,7 @@ use crate::menu::is_play_online;
 use crate::player::PlayerHandle;
 use crate::shot::{InShot, TankShotOutData};
 use crate::tank::*;
+use crate::tank::TurretMessage as TankTurretMessage;
 use crate::AppState;
 
 #[derive(Debug, Parser)]
@@ -128,7 +129,7 @@ pub enum GameMessage {
     Ping(u64, u64),
     Pong(u64, u64),
     BodyMove(TankBodyOutData),
-    TurretRotate(TankTurretOutData),
+    TurretMessage(TankTurretMessage),
     CannonRotate(TankCannonOutData),
     Shot(TankShotOutData),
     Explosion(OutExplosion),
@@ -287,7 +288,7 @@ pub fn handle_conn_events(
                 } else if let GameMessage::BodyMove(data) = mess {
  //                   log::info!("Network handle_conn_events TankBodyOutData");
                     in_body.data.insert(handle, data);
-                } else if let GameMessage::TurretRotate(data) = mess {
+                } else if let GameMessage::TurretMessage(data) = mess {
  //                   log::info!("Network handle_conn_events TankTurretOutData");
                     in_turret.data.insert(handle, data);
                 } else if let GameMessage::CannonRotate(data) = mess {
@@ -324,14 +325,13 @@ pub fn send_out_body(
         log::info!("Network send_out_body {:?}", res);
     }
 }
-
 pub fn send_out_turret(
-    data: Res<TankTurretOutData>,
+    data: Res<TankTurretMessage>,
     to_server: ResMut<mpsc::Sender<GameMessage>>,
 ) {
     if data.is_changed() {
-        let res = to_server.try_send(GameMessage::TurretRotate(data.to_owned()));
-        log::info!("Network send_out_turret dir:{:?} speed:{:?}", data.dir, data.speed);
+        let res = to_server.try_send(GameMessage::TurretMessage(data.to_owned()));
+        log::info!("Network send_out_turret data:{:?}", data);
     }
 }
 

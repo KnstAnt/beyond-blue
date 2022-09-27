@@ -28,12 +28,35 @@ pub struct TankBodyOutData {
     pub pos: Vec2,
     pub dir: f32,
 }
+
+/* 
 #[repr(C)]
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct TankTurretOutData {
     pub speed: f32,
     pub dir: f32,
 }
+*/
+#[repr(C)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct Rotation {
+    pub speed: f32,
+    pub dir: f32,
+}
+
+#[repr(C)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum TurretMessage {
+    StartRotate(Rotation),
+    ContinueRotate(Rotation),
+    StopRotate(Rotation),
+}
+impl Default for TurretMessage {
+        fn default() -> Self {
+        TurretMessage::StopRotate(Rotation::default())
+    }
+}
+
 #[repr(C)]
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct TankCannonOutData {
@@ -45,7 +68,7 @@ pub struct InBody {
     pub data: HashMap<PlayerHandle, TankBodyOutData>,
 }
 pub struct InTurret {
-    pub data: HashMap<PlayerHandle, TankTurretOutData>,
+    pub data: HashMap<PlayerHandle, TurretMessage>,
 }
 pub struct InCannon {
     pub data: HashMap<PlayerHandle, TankCannonOutData>,
@@ -201,13 +224,21 @@ pub fn obr_spawn_tanks(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for data in &data.vector {
-        create_debug_tank(
+/*      create_debug_tank(
             &mut commands,
             data.handle,
             data.pos,
             data.angle,
             &mut meshes,
             &mut materials,
+        );
+*/
+        create_tank(
+            &mut commands,
+            data.handle,
+            data.pos,
+            data.angle,
+            &model_assets,
         );
     }
 
@@ -450,6 +481,7 @@ fn create_tank(
 
 pub fn update_body_position(
     local_handles: Res<LocalHandles>,
+    time: Res<Time>,
     mut data_query: Query<(
         &GlobalTransform,
         ChangeTrackers<TankControlBody>,
@@ -500,15 +532,16 @@ pub fn update_body_position(
             //       log::info!("tank mod update_body_position translation.pos {} input.pos{} delta_pos{}",
             //           transform.translation, tank_control_body.pos, delta_pos);
 
-            impulse.impulse = if delta_pos.length_squared() > 1. {
+            impulse.impulse = delta_pos*delta_pos.length_squared()*100.*time.delta_seconds();
+
+  /*           impulse.impulse = if delta_pos.length_squared() > 1. {
                 delta_pos.normalize_or_zero()
             } else {
                 delta_pos
             } * 10.;
-
+*/
             let current_body_dir = rotation.to_euler(EulerRot::YXZ).0;
-            let torque =
-                calc_delta_dir(tank_control_body.dir, current_body_dir, 3. * PI / 180.) * 10.;
+            let torque = calc_delta_dir(tank_control_body.dir, current_body_dir, 30. * PI / 180.)*10000.*time.delta_seconds();
 
             //       log::info!("tank mod update_body_position current_dir: {}; from_net.dir: {}; torque: {}",
             //       current_body_dir, tank_control_body.dir, torque);
@@ -587,7 +620,7 @@ pub fn update_turret_rotation(
     ping: Res<PingList>,
     local_handles: Res<LocalHandles>,
     mut query: Query<(&mut Transform, &TankControlTurret, &PlayerData)>,
-    mut out_data: ResMut<TankTurretOutData>,
+    mut out_data: ResMut<TurretMessage>,
 ) {
     for (mut transform, tank_control_turret, player) in query.iter_mut() {
 
@@ -736,9 +769,10 @@ pub fn update_cannon_shot(
                 continue;
             }
 
+            //TODO add compensation of ping: delta pos:shot_action.vel*ping.get_time(player.handle)
+            //apply gravity to velosity
             shot_pos = shot_action.pos + shot_action.vel*ping.get_time(player.handle);
-            shot_vel = shot_action.vel;
-
+            shot_vel = shot_action.vel - Vec3::Y*9.8*ping.get_time(player.handle);
             //         cannon_shot_data.is_shot = false;
         }
 
