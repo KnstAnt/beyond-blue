@@ -2,7 +2,7 @@
 
 members = [
 	"common",
-	"game",
+	"_game",
 	"peer",
 	"relay",
 ]

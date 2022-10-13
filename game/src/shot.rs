@@ -18,21 +18,26 @@ pub struct ShotPlugin;
 
 impl Plugin for ShotPlugin {
     fn build(&self, app: &mut App) {
-  //      let before_system_set = SystemSet::on_update(AppState::Playing)
-        //      .with_system(print_before_system);
+
+ /* *   let before_system_set = SystemSet::on_update(AppState::Playing)
+        .with_system(remove_shots)
+        .with_system(obr_in_shot.run_if(is_play_online))
+        .with_system(handle_explosion_events)        
+        ;
+*/
     let update_system_set = SystemSet::on_update(AppState::Playing)
         .with_system(remove_shots)
-        .with_system(obr_in_shot.run_if(is_play_online));
-
-    let after_system_set = SystemSet::on_update(AppState::Playing)
-        //    .with_system(print_after_system)
+        .with_system(obr_in_shot.run_if(is_play_online))
         .with_system(handle_explosion_events);
+        //   let after_system_set = SystemSet::on_update(AppState::Playing)
+        //    .with_system(print_after_system)
+        //      .with_system(handle_explosion_events)    ;
 
     app
  //       .add_system_set_to_stage(CoreStage::PreUpdate, State::<AppState>::get_driver())
  //       .add_system_set_to_stage(CoreStage::PostUpdate, State::<AppState>::get_driver())
         .add_system_set_to_stage(CoreStage::Update, update_system_set)
-        .add_system_set_to_stage(CoreStage::PostUpdate, after_system_set)
+   //     .add_system_set_to_stage(CoreStage::PostUpdate, after_system_set)
         ;
     }
 }

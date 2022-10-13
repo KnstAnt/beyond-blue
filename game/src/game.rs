@@ -55,7 +55,7 @@ impl Plugin for GamePlugin {
         app.add_plugin(DebugLinesPlugin::with_depth_test(true))
             .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
             //            .add_plugin(RapierPhysicsPlugin::<&CustomFilterTag>::default())
-            .add_plugin(RapierDebugRenderPlugin::default())
+  //          .add_plugin(RapierDebugRenderPlugin::default())
             .add_plugin(CameraPlugin::<TempForCamera>::default())
             .add_plugin(TerrainPlugin)
             .add_plugin(PlayerPlugin)
@@ -291,27 +291,28 @@ pub fn start_game(
     */
     let mut rng = thread_rng();
 
-    let start_pos = Vec3::new(rng.gen_range(-6.0..6.0), 0., rng.gen_range(-6.0..6.0));
+    let start_pos = Vec3::new(rng.gen_range(-10.0..10.0), 0., rng.gen_range(-10.0..10.0));
 
     if let Some(pos) = get_pos_on_ground(start_pos, &rapier_context) {
+
         tank_data.vector.push(NewTank {
             handle,
             pos: Vec3::new(pos.x, pos.y + 1., pos.z),
             angle: rng.gen_range(-std::f32::consts::PI..std::f32::consts::PI),
         });
 
-        
-    let start_pos_x = 0.0;
-    let start_pos_z = 0.0;
+  /*       
+        let start_pos_x = 0.0;
+        let start_pos_z = 0.0;
 
         let mut rng = rand::thread_rng();
     //    let y: f64 = rng.gen(); // generates a float between 0 and 1
 
         // Spawn obstacles
-        for x in -4..=4 {
-            for z in -4..=4 {
-                let size: f32 = rng.gen();
-                let half_size = size/2. + 0.1;
+        for x in -20..=20 {
+            for z in -20..=20 {
+                let size: f32 = rng.gen_range(0.05..0.1);
+                let half_size = size/2.;
                 commands
                     .spawn_bundle(PbrBundle {
                         mesh: meshes.add(Mesh::from(shape::Cube::new(half_size*2.))),
@@ -319,9 +320,9 @@ pub fn start_game(
                         transform: Transform::from_translation(
                             get_pos_on_ground(
                                 Vec3::new(
-                                    start_pos_x + x as f32 * 2.0,
+                                    start_pos_x + x as f32 * 0.4,
                                     half_size,
-                                    start_pos_z + z as f32 * 2.0,
+                                    start_pos_z + z as f32 * 0.4,
                                 ),
                                 &rapier_context,
                             )
@@ -339,6 +340,8 @@ pub fn start_game(
                 //                    .insert(PathObstacle);
             }
         }
+*/
+
     }
 
     println!("Game start_game complete, handle:{}", handle);

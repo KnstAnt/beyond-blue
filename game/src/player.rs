@@ -7,7 +7,7 @@ use crate::input::*;
 use crate::tank::TankBodyOutData;
 use crate::tank::TankCannonOutData;
 use crate::tank::TankControlBody;
-use crate::tank::TankTurretOutData;
+use crate::tank::TurretMessage as TankTurretMessage;
 use crate::shot::TankShotOutData;
 
 use crate::AppState;
@@ -61,7 +61,6 @@ impl Default for Actions {
 
 impl TryFrom<u16> for Actions {
     type Error = &'static str;
-
     fn try_from(code: u16) -> Result<Self, Self::Error> {
         match code {
             0 => Ok(Actions::Up),
@@ -80,7 +79,6 @@ impl TryFrom<u16> for Actions {
 
 impl TryInto<u16> for Actions {
     type Error = &'static str;
-
     fn try_into(self) -> Result<u16, Self::Error> {
         match self {
             Actions::Up => Ok(0),
@@ -127,7 +125,7 @@ impl Plugin for PlayerPlugin {
         .add_plugin(InputPlugin::<Actions>::default())
         .insert_resource(LocalHandles::default())
         .insert_resource(TankBodyOutData::default())
-        .insert_resource(TankTurretOutData::default())
+        .insert_resource(TankTurretMessage::default())
         .insert_resource(TankCannonOutData::default())
         .insert_resource(TankShotOutData::default())
         .add_system_set(
