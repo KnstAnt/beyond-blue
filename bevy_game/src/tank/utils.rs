@@ -1,0 +1,69 @@
+//use bevy::prelude::Component;
+//use serde::{Deserialize, Serialize, de::DeserializeOwned};
+
+pub fn calc_delta_dir(new_dir: f32, old_dir: f32, max_delta: f32) -> f32 {
+    let mut delta = new_dir - old_dir;
+
+    let res = if delta.abs() > max_delta {
+        if delta.abs() > std::f32::consts::PI {
+            delta = -delta;
+        }
+
+        max_delta*delta.signum()
+
+    } else {
+        delta
+    };
+
+    res
+}
+pub fn calc_dir(dir: f32, old_dir: f32, rot_speed: f32, delta_time: f32) -> f32 {
+    let delta = calc_delta_dir(dir, old_dir, rot_speed * delta_time); 
+    let new_dir = dir + delta;//TODO implement ping time
+
+  //  log::info!("Tank calc_dir dir:{:?} old_dir:{:?} rot_speed:{:?} delta_time:{:?} delta:{:?} new_dir:{:?}",
+  //      dir, old_dir, rot_speed, delta_time, delta, new_dir );
+
+    normalize(new_dir)
+}
+
+pub fn normalize(mut dir: f32) -> f32 {
+    if dir.abs() > std::f32::consts::PI {
+        dir -= std::f32::consts::TAU;
+    }
+
+    if dir.abs() < -std::f32::consts::PI {
+        dir += std::f32::consts::TAU;
+    }
+
+    dir
+}
+
+pub fn calc_rotation_speed(
+    delta_time: f32,
+    rotation: f32,
+    max_speed: f32,
+    old_speed: f32,
+    run_time: f32,
+    stop_time: f32,
+) -> f32 {
+    let mut new_speed = if rotation.abs() > 0. {
+        (rotation * delta_time * max_speed) / run_time + old_speed
+    } else {
+        let delta_speed = (delta_time * max_speed.abs()) / stop_time;
+
+        if old_speed.abs() > delta_speed {
+            (old_speed.abs() - delta_speed) * old_speed.signum()
+        } else {
+            0.
+        }
+    };
+
+    if new_speed.abs() > max_speed {
+        new_speed = max_speed * new_speed.signum()
+    }
+
+    //                  dbg![time.delta_seconds(), delta_acceleration, old_rotation, new_rotation];
+    new_speed
+}
+
