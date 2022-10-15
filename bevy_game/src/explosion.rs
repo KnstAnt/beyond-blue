@@ -79,39 +79,35 @@ impl Plugin for ExplosionPlugin {
         ;
     }
 }
-
-pub fn add_explosion(
-    commands: &mut Commands,
+/*
+fn handle_explosion_events(
+    mut commands: Commands,
     //    mut meshes: ResMut<Assets<Mesh>>,
     //    mut materials: ResMut<Assets<StandardMaterial>>,
-    pos: Vec3,
-    forse: f32,
-    radius: f32,
-    player: usize,
+    mut events: EventReader<bevy_rapier3d::prelude::CollisionEvent>,
+    query: Query<(&GlobalTransform, Entity, &ShotData)>,
 ) {
-//    log::info!("explosion add_explosion pos: {:?}", pos);
+    for event in events.iter() {
+        if let bevy_rapier3d::prelude::CollisionEvent::Started(e1, e2, f) = event {
+            for (global_transform, entity, shot_data) in query.iter() {
+                /*           match event {
+                                bevy_rapier3d::prelude::CollisionEvent::Started(e1, e2, f)
+                                | bevy_rapier3d::prelude::CollisionEvent::Stopped(e1, e2, f)
+                                => {
+                        //  ..          if *f ^ CollisionEventFlags::SENSOR {
+                        //                continue;
+                        //            }
+                */
+                if e1 == &entity || e2 == &entity {
+                    println!("handle_explosion_events  translation: {:?}", global_transform.translation());
 
-    commands
-        .spawn_bundle(PointLightBundle {
-
-            point_light: PointLight {
-                intensity: 3000., // lumens - roughly a 100W non-halogen incandescent bulb
-                color: Color::rgb(0.8, 0.6, 0.6),
-                shadows_enabled: true,
-                ..default()
-            },
-
-            transform: Transform::from_translation(pos),
-
-            ..default()
-        })
-        .insert(Data::new(forse, radius))
-        .insert(PlayerData { handle: player });
-
-    //    info!("add_explosion finished");
+                    add_explosion(&mut commands, entity, global_transform.translation(), &shot_data);
+                }
+            }
+        }
+    }
 }
-
-/* 
+*/
 pub fn add_explosion(
     commands: &mut Commands,
     //    mut meshes: ResMut<Assets<Mesh>>,
@@ -121,15 +117,15 @@ pub fn add_explosion(
     radius: f32,
     player: usize,
 ) {
-//    log::info!("explosion add_explosion pos: {:?}", pos);
+    //    info!("add_explosion start");
 
-    let tra = pos;
-    let rot = Quat::default();
-    let collider = Collider::compound(vec![(tra, rot, Collider::ball(radius))]);
+    //    info!("add_explosion process");
+
+    log::info!("explosion add_explosion pos: {:?}", pos);
 
     commands
         .spawn_bundle(PointLightBundle {
-
+            //                transform: Transform::from_xyz(5.0, 8.0, 2.0),
             point_light: PointLight {
                 intensity: 3000., // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::rgb(0.8, 0.6, 0.6),
@@ -141,103 +137,55 @@ pub fn add_explosion(
 
             ..default()
         })
-        .insert(Data::new(forse, radius))
+        .insert(Data::new(forse))
         .insert(PlayerData { handle: player })
-        .insert(collider)
+        .insert(bevy_rapier3d::prelude::Collider::ball(radius))
         .insert(bevy_rapier3d::geometry::Sensor)
         .insert(bevy_rapier3d::prelude::ActiveEvents::COLLISION_EVENTS)
         .insert(CollisionGroups::new(0b1000, 0b0011))
-        .insert(SolverGroups::new(0b1000, 0b0011)) 
-        ;
-
+        .insert(SolverGroups::new(0b1000, 0b0011));
         // TODO  add a lot of ball for emulation explosion
 
     //    info!("add_explosion finished");
 }
-*/
+
 fn process_explosion_event(
     mut commands: Commands,
     time: Res<Time>,
-    rapier_context: Res<RapierContext>,
+    mut events: EventReader<bevy_rapier3d::prelude::CollisionEvent>,
     mut query: Query<(&GlobalTransform, Entity, &mut Data)>,
 ) {
     // info!("process_explosion_event start");
 
     for (global_transform, entity, mut data) in query.iter_mut() {
-
-        data.time += time.delta_seconds();
-
-        if data.time >= LIVE_TIME {
-            commands.entity(entity).remove::<Data>();
-            commands.entity(entity).despawn_recursive();
-            continue;
-        }
-
-        if data.flag {
-            data.flag = false;
-
-            let filter = QueryFilter {
-                flags: bevy_rapier3d::rapier::prelude::QueryFilterFlags::EXCLUDE_SENSORS,
-                groups: Some(InteractionGroups::new(0b1000, 0b0011)),
-                exclude_collider: None,
-                exclude_rigid_body: None,
-                predicate: None,
-            };
-
-            rapier_context.intersections_with_shape(
-                global_transform.translation(),
-                Quat::IDENTITY,
-                &Collider::ball(data.radius),
-                filter,
-                |entity| {
-            // TODO  add a lot of ball for emulation explosion
-                    commands.entity(entity).insert(ForceMarker {
-                        force: data.force,
-                        position: global_transform.translation(),
-                    });                    
-                    true
-                },
-            );
-        }
-    }
-}
-/* 
-fn process_explosion_event(
-    mut commands: Commands,
- //   time: Res<Time>,
-    mut events: EventReader<bevy_rapier3d::prelude::CollisionEvent>,
-    mut query: Query<(&GlobalTransform, Entity,/*  &ColiderMarker, */&Data)>,
-) {
-    // info!("process_explosion_event start");
-
-    for (global_transform, entity, data) in query.iter_mut() {
-        // info!("process_explosion_event start");
-
         //     info!("remove_shots tick");
         for event in events.iter() {
             if let bevy_rapier3d::prelude::CollisionEvent::Started(e1, e2, f) = event {
                 //                info!("process_explosion_event process");
 
                 if e1 == &entity {
-                    commands.entity(*e2).insert(ForceMarker {
+                    commands.entity(*e2).insert(Marker {
                         force: data.force,
                         position: global_transform.translation(),
                     });
-
                 } else if e2 == &entity {
-                    commands.entity(*e1).insert(ForceMarker {
+                    commands.entity(*e1).insert(Marker {
                         force: data.force,
-                        position: global_transform.translation(),                        
+                        position: global_transform.translation(),
                     });
                 }
             }
         }
 
-        commands.entity(entity).despawn_recursive();
+        data.timer.tick(time.delta());
+        // if it finished, despawn the bomb
+        if data.timer.finished() {
+            //           info!("remove_shots finished");
+            commands.entity(entity).despawn_recursive();
+        }
     }
 }
 
-*/
 fn apply_explosion(
     mut commands: Commands,
     mut query: Query<(
@@ -245,7 +193,7 @@ fn apply_explosion(
         Entity,
         &bevy_rapier3d::prelude::Collider,
         &ColliderMassProperties,
-        &mut ForceMarker,
+        &mut Marker,
     )>,
 ) {
     for (exploded_entity_transform, exploded_entity, collider, collider_mass_properties, marker) in
@@ -271,14 +219,11 @@ fn apply_explosion(
             ..default()
         });
 
-        commands.entity(exploded_entity).remove::<ForceMarker>();
+        commands.entity(exploded_entity).remove::<Marker>();
     }
 }
 
-fn process_in_explosion(
-    mut commands: Commands, 
-    mut input: ResMut<InMessages<NetData>>,
-) {
+fn obr_in_explosion(mut commands: Commands, mut input: ResMut<InExplosion>) {
     for (player, explosion) in &input.data {
         log::info!("Explosion obr_in_explosion add_explosion pos:{:?}", explosion.pos);
         add_explosion(
