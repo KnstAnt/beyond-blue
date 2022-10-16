@@ -1,6 +1,6 @@
 use crate::explosion::add_explosion;
 use crate::game::GameMessage;
-use crate::game::InMessages;
+use crate::game::InMesVec;
 use crate::game::OutGameMessages;
 use crate::menu::is_play_offline;
 use crate::menu::is_play_online;
@@ -77,7 +77,7 @@ pub fn create_shot_from_net(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     ping: Res<PingList>,
-    mut input: ResMut<InMessages<ShotData>>,
+    mut input: ResMut<InMesVec<ShotData>>,
 ) {
     for (player, data) in input.data.iter_mut() {
         if !data.is_shot {

@@ -5,6 +5,7 @@ use iyes_loopless::prelude::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::collections::HashMap;
+use std::fmt::Debug;
 
 use crate::explosion::*;
 use crate::menu::{is_play_offline, is_play_online};
@@ -69,10 +70,17 @@ pub struct OutGameMessages<T>
 }
 
 #[derive(Debug, Default)]
-pub struct InMessages<T>
+pub struct InMesMap<T>
 //where T: 'static + Serialize + Deserialize + DeserializeOwned + Default + Component + PartialEq,
 {
     pub data: HashMap<PlayerHandle, T>,
+}
+
+#[derive(Debug, Default)]
+pub struct InMesVec<T>
+//where T: 'static + Serialize + Deserialize + DeserializeOwned + Default + Component + PartialEq,
+{
+    pub data: Vec<(PlayerHandle, T)>,
 }
 
 #[derive(Component, Debug, Default, PartialEq)]
@@ -165,12 +173,12 @@ impl Plugin for GamePlugin {
             .add_plugin(ExplosionPlugin)
             .add_plugin(NetPlugin)
 
-            .insert_resource(InMessages::<GameMessage>::default())
-            .insert_resource(InMessages::<TankBodyData>::default())
-            .insert_resource(InMessages::<TurretRotation>::default())
-            .insert_resource(InMessages::<CannonRotation>::default())
-            .insert_resource(InMessages::<ShotData>::default())     
-            .insert_resource(InMessages::<ExplosionData>::default())  
+            .insert_resource(InMesMap::<GameMessage>::default())
+            .insert_resource(InMesMap::<TankBodyData>::default())
+            .insert_resource(InMesMap::<TurretRotation>::default())
+            .insert_resource(InMesMap::<CannonRotation>::default())
+            .insert_resource(InMesVec::<ShotData>::default())     
+            .insert_resource(InMesVec::<ExplosionData>::default())  
 
             .insert_resource(OutGameMessages::<GameMessage>::default())
             .insert_resource(OutMessageState::<TankBodyData>::default())
@@ -188,22 +196,19 @@ impl Plugin for GamePlugin {
                 SystemSet::on_update(AppState::Playing)
                     .with_system(
                         obr_in_raw_message
-                        .before(obr_in_message::<TankBodyData>),
+                        .before(obr_in_mes_map::<TankBodyData>),
                     )
                     .with_system(
-                        obr_in_message::<TankBodyData>
+ //                       obr_in_mes_map::<TankBodyData>
+                        obr_in_mes_tank_body
                         .after(obr_in_raw_message),
                     )
                     .with_system(
-                        obr_in_message::<TurretRotation>
+                        obr_in_mes_map::<TurretRotation>
                         .after(obr_in_raw_message),
                     )
                     .with_system(
-                        obr_in_message::<CannonRotation>
-                        .after(obr_in_raw_message),
-                    )
-                    .with_system(
-                        obr_in_message::<ShotData>
+                        obr_in_mes_map::<CannonRotation>
                         .after(obr_in_raw_message),
                     )
             )
@@ -518,13 +523,14 @@ fn obr_new_handles(
 */
 
 pub fn obr_in_raw_message(
-    mut raw: ResMut<InMessages<GameMessage>>,
-    mut in_body: ResMut<InMessages<TankBodyData>>,
-    mut in_turret: ResMut<InMessages<TurretRotation>>,
-    mut in_cannon: ResMut<InMessages<CannonRotation>>,
-    mut in_shot: ResMut<InMessages<ShotData>>,
-    mut in_explosion: ResMut<InMessages<ExplosionData>>,
+    mut raw: ResMut<InMesMap<GameMessage>>,
+    mut in_body: ResMut<InMesMap<TankBodyData>>,
+    mut in_turret: ResMut<InMesMap<TurretRotation>>,
+    mut in_cannon: ResMut<InMesMap<CannonRotation>>,
+    mut in_shot: ResMut<InMesVec<ShotData>>,
+    mut in_explosion: ResMut<InMesVec<ExplosionData>>,
     player_tank_data: Res<OutMessageState<TankBodyData>>,
+    query_tank_data: Query<&PlayerData, With<MesState<TankBodyData>>>,
     mut spawn_tank_data: ResMut<NewTanksData>,
     mut output: ResMut<OutGameMessages<GameMessage>>,
 
@@ -533,12 +539,19 @@ pub fn obr_in_raw_message(
     //   time: Res<Time>,
 ) {
     //    log::info!("net handle_conn_events start");    
-    for (player, raw_mes) in raw.data.iter() {
-        if &GameMessage::DataRequest == raw_mes {
-            log::info!("handle_conn_events DataRequest");
+    'raw_data: for (player, raw_mes) in raw.data.iter() {
+        if GameMessage::DataRequest == *raw_mes {
+            log::info!("obr_in_raw_message DataRequest");
             output.data.push(GameMessage::InitData(NewTankData::from(player_tank_data.old_data)));
         } else if let GameMessage::InitData(data) = raw_mes {
-            println!( "obr_new_handles InitData player:{:?}  pos:{:?}  angle:{:?}", player, data.pos, data.angle);
+            println!( "obr_in_raw_message InitData player:{:?}  pos:{:?}  angle:{:?}", player, data.pos, data.angle);
+
+            for exist_player in &query_tank_data {
+                if exist_player.handle == *player { // tank for player is already spawned
+                    continue 'raw_data;
+                }
+            }
+
             spawn_tank_data.vector.push(NewTank {
                 handle: *player,
                 pos: data.pos,
@@ -555,10 +568,10 @@ pub fn obr_in_raw_message(
             in_cannon.data.insert(*player, *data);
         } else if let GameMessage::Shot(data) = raw_mes {
             //                   log::info!("Network handle_conn_events TankShotOutData");
-            in_shot.data.insert(*player, *data);
+            in_shot.data.push((*player, *data));
         } else if let GameMessage::Explosion(data) = raw_mes {
             //                   log::info!("Network handle_conn_events ExplosionData");
-            in_explosion.data.insert(*player, *data);
+            in_explosion.data.push((*player, *data));
         }
     }
 
@@ -566,19 +579,48 @@ pub fn obr_in_raw_message(
     //   log::info!("net handle_conn_events end");
 }
 
-pub fn obr_in_message<T>(
-    mut input: ResMut<InMessages<T>>,
+pub fn obr_in_mes_map<T>(
+    mut input: ResMut<InMesMap<T>>,
     mut query: Query<(&mut MesState<T>, &PlayerData)>,
-) where T: 'static + Serialize + DeserializeOwned + Default + Component + PartialEq + Copy{
+    mut output: ResMut<OutGameMessages<GameMessage>>,
+) where T: 'static + Serialize + DeserializeOwned + Default + Debug + Component + PartialEq + Copy {
     for (mut state, player) in query.iter_mut() {
         if let Some(data) = input.data.get_mut(&player.handle) {
             state.data = *data;
-   //         log::info!("game obr_in_turret in speed:{:?} dir:{:?}", data.speed, data.dir);
+            log::info!("obr_in_mes_map data:{:?}", data);
         }
     }
 
     input.data.clear();
 }
+
+pub fn obr_in_mes_tank_body(
+    mut input: ResMut<InMesMap<TankBodyData>>,
+    mut query: Query<(&mut MesState<TankBodyData>, &PlayerData)>,
+    mut output: ResMut<OutGameMessages<GameMessage>>,
+) {
+    for (mut state, player) in query.iter_mut() {
+        if let Some(data) = input.data.get_mut(&player.handle) {
+            state.data = *data;
+            log::info!("obr_in_mes_tank_body data:{:?}", data);
+        }
+    }
+
+    'input_cicle: for (input_player, _data) in input.data.iter() {
+
+        for (mut _state, query_player) in query.iter() {
+            if *input_player == query_player.handle {
+                continue 'input_cicle;
+            }
+        }
+        //TODO send to player request for the init data
+        output.data.push(GameMessage::DataRequest);
+        break;
+    }
+
+    input.data.clear();
+}
+
 /* 
 fn send_out<T>(
     mut message: ResMut<OutMessageTime<T>>,
@@ -613,23 +655,25 @@ pub fn set_network_control(
     commands: &mut Commands,
     entityes: &TankEntityes,
     pos: Vec2,
-    dir: f32,
+    angle: f32,
 ) {
     commands
         .entity(entityes.body)
-        .insert(TankBodyData {
-            movement: Vec2::ZERO,
-            pos,
-            angle: dir,
+        .insert(MesState::<TankBodyData> {
+            data: TankBodyData{
+                movement: Vec2::ZERO,
+                pos,
+                angle,
+            }
         });
     commands
         .entity(entityes.turret)
-        .insert(TurretRotation::default());
+        .insert(MesState::<TurretRotation>::default());
     commands
         .entity(entityes.cannon)
-        .insert(CannonRotation::default());
+        .insert(MesState::<CannonRotation>::default());
     commands
         .entity(entityes.fire_point)
-        .insert(ShotData::default());
+        .insert(MesState::<ShotData>::default());
 }
 

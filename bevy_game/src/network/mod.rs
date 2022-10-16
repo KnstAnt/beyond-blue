@@ -18,7 +18,7 @@ mod ping;
 pub use ping::*;
 
 use crate::game::{GameMessage, OutGameMessages};
-use crate::game::InMessages;
+use crate::game::InMesMap;
 
 
 #[derive(Debug, Parser)]
@@ -130,7 +130,7 @@ fn check_network(
 pub fn handle_conn_events(
     mut ping: ResMut<PingList>,
     mut handles: ResMut<NetHandles>,    
-    mut in_mess: ResMut<InMessages<GameMessage>>,
+    mut in_mess: ResMut<InMesMap<GameMessage>>,
     from_server: Res<Arc<Mutex<mpsc::Receiver<NetEvent>>>>,
     to_server: ResMut<mpsc::Sender<NetMessage>>,
     time: Res<Time>,
@@ -141,14 +141,14 @@ pub fn handle_conn_events(
     if let Ok(msg) = from_server.lock().unwrap().try_recv() {
         match msg {
             peer::NetworkEvent::NewConnection(peer_id) => {
-                log::info!("handle_conn_events msg: NewConnection");
+//                log::info!("handle_conn_events msg: NewConnection");
 
                 if handles.handles.get(&peer_id).is_none() {
                     let new_handle = handles.last_handle + 1; 
                     assert!(new_handle < usize::MAX);       
                     handles.handles.insert(peer_id.clone(), new_handle);   
                     handles.last_handle = new_handle;  
-
+             
                     let _res = to_server.try_send(NetMessage::GameData(GameMessage::DataRequest));
                 }
 
@@ -158,19 +158,19 @@ pub fn handle_conn_events(
             },
 
             peer::NetworkEvent::Event(peer_id, mess) => {   
-                log::info!("handle_conn_events msg: Event");                
+//                log::info!("handle_conn_events msg: Event");                
 
                 let handle = handles.handles.get(&peer_id).unwrap().clone();
 
                 if let NetMessage::Ping(id, temp) = mess {
-                    log::info!("handle_conn_events Ping id:{:?}", id);  
+//                    log::info!("handle_conn_events Ping id:{:?}", id);  
                     ping.check_collision_id(id);
                     let _res = to_server.try_send(NetMessage::Pong(id, temp));
                 } else if let NetMessage::Pong(id, _) = mess {
-                    log::info!("handle_conn_events Pong id:{:?}", id);   
+//                    log::info!("handle_conn_events Pong id:{:?}", id);   
                     ping.receive_pong(id, handle, time.seconds_since_startup());
                 } else if let NetMessage::GameData(data) = mess {
-                    log::info!("handle_conn_events GameData");
+                    log::info!("handle_conn_events {:?}", data.clone());
                     in_mess.data.insert(handle, data);
                 }
             },
@@ -186,8 +186,8 @@ fn send_out(
     if output.is_changed() {
 
         for mess in output.data.drain(0..) {
+            log::info!("send_out {:?}", mess.clone());
             let res = to_server.try_send(NetMessage::GameData(mess));
-            log::info!("Network send_out {:?}", res);
         }
 
         output.data.clear();

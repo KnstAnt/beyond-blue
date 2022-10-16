@@ -1,19 +1,14 @@
-use std::collections::HashMap;
-use std::time::Duration;
-
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use bevy_rapier3d::rapier::prelude::{RigidBodyType, ImpulseJointSet, JointAxesMask, SharedShape, ColliderBuilder};
-use bevy_rapier3d::rapier::na::{Translation3, UnitQuaternion, Vector3, Isometry3};
-
 use iyes_loopless::prelude::*;
+
 use serde::{Deserialize, Serialize};
 
 use crate::AppState;
 
-use crate::game::InMessages;
+use crate::game::InMesVec;
 use crate::menu::is_play_online;
-use crate::player::{PlayerData};
+use crate::player::PlayerData;
 
 #[repr(C)]
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Copy, PartialEq)]
@@ -34,7 +29,7 @@ struct Data {
 
 impl Data {    pub fn new(force: f32, radius: f32) -> Self {
         Self {
-            time: 0.,
+            time: LIVE_TIME,
             force,
             radius,
             flag: true,
@@ -44,7 +39,7 @@ impl Data {    pub fn new(force: f32, radius: f32) -> Self {
 
 
 #[derive(Component)]
-struct ForceMarker {
+struct Marker {
     force: f32,
     position: Vec3,
 }
@@ -137,7 +132,7 @@ pub fn add_explosion(
 
             ..default()
         })
-        .insert(Data::new(forse))
+        .insert(Data::new(forse, radius))
         .insert(PlayerData { handle: player })
         .insert(bevy_rapier3d::prelude::Collider::ball(radius))
         .insert(bevy_rapier3d::geometry::Sensor)
@@ -177,9 +172,9 @@ fn process_explosion_event(
             }
         }
 
-        data.timer.tick(time.delta());
+        data.time -= time.delta_seconds();
         // if it finished, despawn the bomb
-        if data.timer.finished() {
+        if data.time <= 0. {
             //           info!("remove_shots finished");
             commands.entity(entity).despawn_recursive();
         }
@@ -223,7 +218,10 @@ fn apply_explosion(
     }
 }
 
-fn obr_in_explosion(mut commands: Commands, mut input: ResMut<InExplosion>) {
+fn process_in_explosion(
+    mut commands: Commands, 
+    mut input: ResMut<InMesVec<NetData>>,
+) {
     for (player, explosion) in &input.data {
         log::info!("Explosion obr_in_explosion add_explosion pos:{:?}", explosion.pos);
         add_explosion(
