@@ -13,6 +13,7 @@ mod terrain;
 mod player;
 //mod log_plugin;
 mod camera;
+mod ballistics;
 
 //use crate::input::InputPlugin;
 use crate::audio::InternalAudioPlugin;

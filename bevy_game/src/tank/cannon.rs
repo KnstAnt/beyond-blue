@@ -1,11 +1,13 @@
+use std::f32::consts::PI;
+
 use bevy::prelude::Component;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::f32::consts::PI;
 
 use super::utils::*;
-use crate::game::{GameMessage, MesState, OutGameMessages, OutMessageState, MAX_OUT_DELTA_TIME};
+use crate::game::{GameMessage, MesState, OutGameMessages, OutMessageState, MAX_OUT_DELTA_TIME, MIN_OUT_DELTA_TIME, OUT_ANGLE_EPSILON, SPEED_EPSILON};
 use crate::network::PingList;
+//use crate::network::PingList;
 use crate::player::{ControlCannon, PlayerData};
 
 #[repr(C)]
@@ -22,17 +24,23 @@ pub fn update_cannon_rotation_from_net(
 ) {
     for (mut transform, state, player) in query.iter_mut() {
         let data = state.data;
-        let rot_speed = 0.1 * PI * data.speed;
-
         let old_dir = transform.rotation.to_euler(EulerRot::XYZ).0;
 
-        let mut new_dir = calc_dir(
+        let mut new_dir = if data.speed != 0. {
+            let delta_time = (time.seconds_since_startup() - state.time) as f32 + ping.get_time(player.handle)*0.5;
+            normalize(data.dir + data.speed * delta_time)
+        } else {
+            data.dir
+        };
+
+
+/*        let mut new_dir = calc_dir(
             data.dir,
             old_dir,
-            rot_speed,
+            data.speed,
             ping.get_time(player.handle),
         );
-
+*/
         if new_dir < -0.7 {
             new_dir = -0.7;
         }
@@ -63,33 +71,30 @@ pub fn update_player_cannon_rotation(
 
     let (mut transform, control) = query.single_mut();
 
-    let rot_speed = 0.1 * PI * control.speed;
+    let is_moved = control.speed.abs() > SPEED_EPSILON;
+    let is_changed = (control.speed - out_data_state.old_data.speed).abs() > OUT_ANGLE_EPSILON;
+    let is_started_or_stoped = is_changed && (control.speed.abs() < SPEED_EPSILON || out_data_state.old_data.speed.abs() < SPEED_EPSILON);
+
+    let mut rotation = 0.;
+
+    if is_moved {
+        rotation = control.speed;
+    } 
+
+    let rot_speed = 0.3 * PI * rotation;
     let old_dir = transform.rotation.to_euler(EulerRot::XYZ).0;
-    let mut new_dir = normalize(old_dir + rot_speed * time.delta_seconds());
+    let new_dir = normalize(old_dir + rot_speed * time.delta_seconds()).max(-0.7).min(0.7);
 
-    let is_moved = control.speed != 0.;
-    let is_changed = control.speed != out_data_state.old_data.speed;
+    transform.rotation = Quat::from_axis_angle(Vec3::X, new_dir);
 
-    if is_changed || (is_moved && out_data_state.delta_time >= MAX_OUT_DELTA_TIME) {
-        out_data_state.old_data.speed = control.speed;
+    if (is_changed && out_data_state.delta_time >= MIN_OUT_DELTA_TIME) || 
+        (is_moved && out_data_state.delta_time >= MAX_OUT_DELTA_TIME) ||
+        is_started_or_stoped {
+        out_data_state.old_data.speed = rot_speed;
         out_data_state.old_data.dir = new_dir;
 
         output.data.push(GameMessage::from(out_data_state.old_data));
         out_data_state.delta_time = 0.;
-    }
-
-    if new_dir < -0.7 {
-        new_dir = -0.7;
-    }
-
-    if new_dir > 0.7 {
-        new_dir = 0.7;
-    }
-
-    //         dbg![cross, dot, dot3, move_dir.angle_between(Game_transform.forward())];
-
-    if new_dir != old_dir {
-        transform.rotation = Quat::from_axis_angle(Vec3::X, new_dir);
     }
 }
 

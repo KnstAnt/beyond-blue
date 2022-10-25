@@ -1,10 +1,14 @@
 use bevy::prelude::Component;
 use bevy::prelude::*;
 
+use crate::camera::CameraState;
+use crate::game::SPEED_EPSILON;
 //use crate::matchbox_net::*;
 use crate::input::*;
+use crate::ballistics::calc_shot_dir;
 
 use crate::AppState;
+use crate::tank::TankShotData;
 
 pub type PlayerHandle = usize;
 
@@ -119,12 +123,12 @@ impl Plugin for PlayerPlugin {
                     .label("player_input")
                     .after("keys_input"),
             )
-            .with_system(
+  /*          .with_system(
                 crate::player::prep_cannon_input
                     .label("player_input")
                     .after("keys_input"),
             )
-            .with_system(
+  */          .with_system(
                 crate::player::prep_shot_input
                     .label("player_input")
                     .after("keys_input"),
@@ -184,14 +188,14 @@ pub fn prep_wheel_input(
     let mut movement = Vec2::ZERO;
 
     if let Some(key_state) = game_control.get_key_state(Actions::Up) {
-        movement += match key_state {
+        movement -= match key_state {
             KeyState::JustPressed | KeyState::Pressed => Vec2::Y,
             _ => Vec2::ZERO,
         }
     }
 
     if let Some(key_state) = game_control.get_key_state(Actions::Down) {
-        movement -= match key_state {
+        movement += match key_state {
             KeyState::JustPressed | KeyState::Pressed => Vec2::Y,
             _ => Vec2::ZERO,
         }
@@ -216,6 +220,128 @@ pub fn prep_wheel_input(
     }
 }
 
+
+pub fn prep_turret_input(
+    time: Res<Time>,
+    local_handles: Res<LocalHandles>,
+    mut turret_query: Query<(&GlobalTransform, &mut ControlTurret, &PlayerData)>,
+    mut cannon_query: Query<(&GlobalTransform, &mut ControlCannon, &PlayerData)>,
+    mut fire_pos_query: Query<(&GlobalTransform, &TankShotData, &ControlFire)>,
+    game_control: Res<GameControl<Actions>>,
+    camera_state: ResMut<CameraState>,
+) {
+    if local_handles.handles.is_empty() {
+        return;
+    }
+
+    if turret_query.is_empty() {
+        return;
+    }
+
+    if cannon_query.is_empty() {
+        return;
+    }
+
+    if fire_pos_query.is_empty() {
+        return;
+    }
+
+    let (turret_global_transform, mut turret_control, player) = turret_query.single_mut();
+    assert!(*local_handles.handles.first().unwrap() == player.handle);
+    let mut turret_rotation: f32 = 0.;
+
+    let (cannon_global_transform, mut cannon_control, player) = cannon_query.single_mut();
+    assert!(*local_handles.handles.first().unwrap() == player.handle);
+    let mut cannon_rotation = 0.;
+
+
+    if let Some(key_state) = game_control.get_key_state(Actions::TurretLeft) {
+        turret_rotation += match key_state {
+            KeyState::JustPressed | KeyState::Pressed => 1.,
+            _ => 0.,
+        }
+    }
+
+    if let Some(key_state) = game_control.get_key_state(Actions::TurretRight) {
+        turret_rotation += match key_state {
+            KeyState::JustPressed | KeyState::Pressed => -1.,
+            _ => 0.,
+        }
+    }
+
+    if let Some(key_state) = game_control.get_key_state(Actions::CannonUp) {
+        cannon_rotation += match key_state {
+            KeyState::JustPressed | KeyState::Pressed => 1.,
+            _ => 0.,
+        }
+    }
+
+    if let Some(key_state) = game_control.get_key_state(Actions::CannonDown) {
+        cannon_rotation += match key_state {
+            KeyState::JustPressed | KeyState::Pressed => -1.,
+            _ => 0.,
+        }
+    }
+
+    if cannon_rotation == 0. && turret_rotation == 0. {
+        if let Some(target) = camera_state.ray_hit_position {
+
+            let (global_transform, shot_data, shot_control) = fire_pos_query.single_mut();
+
+            let pos = global_transform.translation();
+
+            let shot_dir = calc_shot_dir(
+                pos, 
+                target,   
+                shot_data.shot_speed(shot_control.time), 
+                shot_data.radius,                             
+                9.8,
+            );
+
+            let (_scale, rotation, _pos) = turret_global_transform.to_scale_rotation_translation();
+            let local_dir = Transform::from_rotation(rotation).compute_matrix().inverse().transform_point3(shot_dir);
+            let dot_forward = local_dir.dot(Vec3::NEG_Z);
+            let dot_left = local_dir.dot(Vec3::NEG_X);
+
+            turret_rotation = if dot_forward > 0. {
+                (dot_left*1.4).min(1.)
+            } else {
+                if dot_left > 0. {
+                    1.
+                } else {
+                    -1.
+                }
+            };
+
+            if turret_rotation.abs() < SPEED_EPSILON {
+                turret_rotation = 0.;
+            }
+
+            let (_scale, rotation, _pos) = cannon_global_transform.to_scale_rotation_translation();
+            let local_dir = Transform::from_rotation(rotation).compute_matrix().inverse().transform_point3(shot_dir);
+
+            cannon_rotation = if dot_forward > 0. {
+                (local_dir.dot(Vec3::Y)*1.4).min(1.)
+            } else {
+                0.
+            };
+
+            if cannon_rotation.abs() < SPEED_EPSILON {
+                cannon_rotation = 0.;
+            }
+        }        
+    }
+
+    if turret_control.speed != turret_rotation {
+        turret_control.speed = turret_rotation;
+    }
+
+    if cannon_control.speed != cannon_rotation {
+        cannon_control.speed = cannon_rotation;
+    }
+
+}
+/*
 pub fn prep_turret_input(
     time: Res<Time>,
     local_handles: Res<LocalHandles>,
@@ -237,14 +363,14 @@ pub fn prep_turret_input(
 
     if let Some(key_state) = game_control.get_key_state(Actions::TurretLeft) {
         rotation += match key_state {
-            KeyState::JustPressed | KeyState::Pressed => 1.,
+            KeyState::JustPressed | KeyState::Pressed => -1.,
             _ => 0.,
         }
     }
 
     if let Some(key_state) = game_control.get_key_state(Actions::TurretRight) {
         rotation += match key_state {
-            KeyState::JustPressed | KeyState::Pressed => -1.,
+            KeyState::JustPressed | KeyState::Pressed => 1.,
             _ => 0.,
         }
     }
@@ -288,14 +414,14 @@ pub fn prep_cannon_input(
 
     if let Some(key_state) = game_control.get_key_state(Actions::CannonUp) {
         rotation += match key_state {
-            KeyState::JustPressed | KeyState::Pressed => -1.,
+            KeyState::JustPressed | KeyState::Pressed => 1.,
             _ => 0.,
         }
     }
 
     if let Some(key_state) = game_control.get_key_state(Actions::CannonDown) {
         rotation += match key_state {
-            KeyState::JustPressed | KeyState::Pressed => 1.,
+            KeyState::JustPressed | KeyState::Pressed => -1.,
             _ => 0.,
         }
     }
@@ -313,7 +439,7 @@ pub fn prep_cannon_input(
         control.speed = rotation;
     }
 }
-
+*/
 pub fn prep_shot_input(
     time: Res<Time>,
     local_handles: Res<LocalHandles>,
@@ -357,3 +483,4 @@ pub fn prep_shot_input(
         *control = new_control;
     }
 }
+

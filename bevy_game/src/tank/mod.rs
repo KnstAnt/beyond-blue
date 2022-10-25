@@ -2,11 +2,11 @@ use serde::{Deserialize, Serialize};
 use bevy::prelude::*;
 use bevy::prelude::Component;
 use bevy::prelude::shape::Cube;
-use std::collections::LinkedList;
+use std::{collections::LinkedList, f32::consts::PI};
 use bevy_rapier3d::prelude::*;
 use iyes_loopless::prelude::*;
 
-use crate::{AppState, player::{LocalHandles}, game::{set_player_control, set_network_control}, terrain::get_pos_on_ground, menu::is_play_online};
+use crate::{AppState, player::{LocalHandles}, game::{set_player_control, set_network_control, OutMessageState}, terrain::get_pos_on_ground, menu::is_play_online};
 use crate::loading::ModelAssets;
 use crate::player:: PlayerData;
 
@@ -48,6 +48,7 @@ pub use cannon::InMessage as InCannonMessage;
 
 #[derive(Component, Debug)]
 pub struct TankShotData {
+    pub radius: f32,
     pub shot_speed_min: f32,
     pub shot_speed_delta: f32,
     pub shot_live_max_time: f32,
@@ -57,11 +58,16 @@ pub struct TankShotData {
 impl TankShotData {
     fn init() -> Self {
         Self {
+            radius: 0.02,
             shot_speed_min: 10.,
             shot_speed_delta: 5.,
             shot_live_max_time: 30.,
             explosion_force: 20.,
         }
+    }
+
+    pub fn shot_speed(&self, time: f32) -> f32 {   
+        self.shot_speed_min + self.shot_speed_delta * time
     }
 }
 
@@ -210,6 +216,8 @@ pub fn obr_spawn_tanks(
                 Vec3::new(pos.x, pos.y + 1., pos.z),
                 data.angle,
                 &model_assets,
+                &mut meshes,
+                &mut materials,
             );
 
             if *local_handles.handles.first().unwrap() == data.handle {
@@ -332,7 +340,142 @@ fn create_tank(
     pos: Vec3,
     angle: f32,
     model_assets: &Res<ModelAssets>,
-    //    material: &Handle<bevy::prelude::StandardMaterial>,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+  //  material: &Handle<bevy::prelude::StandardMaterial>,
+) -> TankEntityes {
+    let body_size = Vec3::new(1., 0.45, 1.6);
+    let config = VehicleConfig::new(body_size);
+
+    let body = commands
+        .spawn_bundle(SpatialBundle {
+            transform: Transform::from_translation(pos)
+                .with_rotation(Quat::from_axis_angle(Vec3::Y, angle)),
+                ..Default::default()
+        })
+        .with_children(|parent| {
+            parent.spawn_bundle(SceneBundle {
+            scene: model_assets.tank_body.clone(),
+            transform: Transform::from_rotation(Quat::from_axis_angle(Vec3::Y, PI)),
+            ..Default::default()
+        });
+    }).id();
+
+    let (body, wheels) = create_body(
+        body,
+        &mut commands,
+        pos,
+        angle,
+        config,
+        CollisionGroups::new(0b0010, 0b1111),
+        SolverGroups::new(0b0010, 0b1111),
+    );
+
+    let turret = commands
+        .spawn_bundle(SpatialBundle {
+            transform: Transform::from_translation(Vec3::new(0.0, 0.10, 0.0)),
+            ..Default::default()
+        })
+        .with_children(|parent| {
+        parent.spawn_bundle(SceneBundle {
+            scene: model_assets.tank_turret.clone(),
+            transform: Transform::from_rotation(Quat::from_axis_angle(Vec3::Y, PI)),
+            //               visibility: visibility.clone(),
+            ..Default::default()
+        });
+    }).id();
+
+    commands.entity(body).add_child(turret);
+
+    let cannon = commands
+        .spawn_bundle(SpatialBundle {
+            transform: Transform::from_translation(Vec3::new(0.0, 0.50, -0.45)),
+            ..Default::default()
+        })
+        .with_children(|parent| {
+        parent.spawn_bundle(SceneBundle {
+            scene: model_assets.tank_cannon.clone(),
+            transform: Transform::from_rotation(Quat::from_axis_angle(Vec3::Y, PI)),
+            //               visibility: visibility.clone(),
+            ..Default::default()
+        });
+    }).id();
+
+    commands.entity(turret).add_child(cannon);
+
+    let fire_point = commands
+        .spawn_bundle(SpatialBundle {
+            transform: Transform::from_translation(Vec3::new(0., 0., -0.5)),
+            ..Default::default()
+        })
+        .insert(TankShotData::init())
+  //      .id();
+            .with_children(|parent| {
+        parent.spawn_bundle(PbrBundle {
+            mesh: meshes.add( Mesh::from(Cube::new(0.1)) ),
+            material: materials.add(Color::RED.into()),
+            //        rotation:
+            ..Default::default()
+        });
+    }).id();
+    
+
+    /*        // fire point
+            .with_children(|from| {
+                from.spawn_bundle(TransformBundle {
+                    local: Transform::from_translation(Vec3::new(0., 0., 0.5)),
+                    //        rotation:
+                    ..Default::default()
+                })
+                .insert(TankControlCannonShot::default());
+            }).id();
+    */
+    commands.entity(cannon).add_child(fire_point);
+
+    commands.entity(body).insert(PlayerData {
+        handle: player_handle,
+    });
+    commands.entity(turret).insert(PlayerData {
+        handle: player_handle,
+    });
+    commands.entity(cannon).insert(PlayerData {
+        handle: player_handle,
+    });
+    commands.entity(fire_point).insert(PlayerData {
+        handle: player_handle,
+    });
+    wheels.iter().for_each(|wheel| {
+        commands.entity(*wheel).insert(PlayerData {
+            handle: player_handle,
+        });
+    });
+
+    let data = TankEntityes {
+        body,
+        turret,
+        cannon,
+        fire_point,
+        wheels,
+    };
+
+    commands.entity(body).insert(data.clone());
+
+    data
+}
+
+
+/*
+
+fn create_tank(
+    mut commands: &mut Commands,
+    //    asset_server: &Res<AssetServer>,
+    player_handle: usize,
+    pos: Vec3,
+    angle: f32,
+    model_assets: &Res<ModelAssets>,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+  //  material: &Handle<bevy::prelude::StandardMaterial>,
 ) -> TankEntityes {
     let body_size = Vec3::new(1., 0.45, 1.6);
     let config = VehicleConfig::new(body_size);
@@ -379,21 +522,21 @@ fn create_tank(
 
     let fire_point = commands
         .spawn_bundle(TransformBundle {
-            local: Transform::from_translation(Vec3::new(0., 0., 0.5)),
+            local: Transform::from_translation(Vec3::new(0., 0., -0.5)),
             global: GlobalTransform::identity(),
         })
         .insert(TankShotData::init())
-        .id();
-    /*        .with_children(|parent| {
+  //      .id();
+            .with_children(|parent| {
         parent.spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(Cube::new(0.1))),
+            mesh: meshes.add( Mesh::from(Cube::new(0.1)) ),
             material: materials.add(Color::RED.into()),
-            transform: Transform::from_translation(Vec3::new(0., 0., 0.5)),
+            transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
             //        rotation:
             ..Default::default()
-        })
-    })
-    */
+        });
+    }).id();
+    
 
     /*        // fire point
             .with_children(|from| {
@@ -437,9 +580,7 @@ fn create_tank(
 
     data
 }
-
-
-
+*/
 
 
 

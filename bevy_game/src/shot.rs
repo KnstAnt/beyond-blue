@@ -55,9 +55,9 @@ impl Plugin for ShotPlugin {
         */
         let update_system_set = SystemSet::on_update(AppState::Playing)
             .with_system(create_shot_from_net.run_if(is_play_online))
-            .with_system(process_shots_net.run_if(is_play_online))
+            .with_system(process_shots_game_net.run_if(is_play_online))
             .with_system(handle_explosion_events_net.run_if(is_play_online))            
-            .with_system(process_shots_local.run_if(is_play_offline))
+            .with_system(process_shots_game_local.run_if(is_play_offline))
             .with_system(handle_explosion_events_local.run_if(is_play_offline));
         //   let after_system_set = SystemSet::on_update(AppState::Playing)
         //    .with_system(print_after_system)
@@ -225,7 +225,7 @@ fn handle_explosion_events_local(
     }
 }
 
-fn process_shots_local(
+fn process_shots_game_local(
     mut commands: Commands,
     time: Res<Time>,
     rapier_context: Res<RapierContext>,
@@ -289,7 +289,7 @@ fn process_shots_local(
     }
 }
 
-fn process_shots_net(
+fn process_shots_game_net(
     mut commands: Commands,
     time: Res<Time>,
     rapier_context: Res<RapierContext>,

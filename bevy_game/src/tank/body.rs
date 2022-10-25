@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
 
 use crate::game::{GameMessage, MesState, OutGameMessages, OutMessageState, MAX_OUT_DELTA_TIME};
-use crate::player::{ControlMove as PlayerControlMove, LocalHandles, PlayerData};
+use crate::player::ControlMove;
 use crate::tank::{TankEntityes, WheelData};
 
 use super::utils::*;
@@ -55,7 +55,7 @@ pub fn update_body_position_from_net(
                     } * 10.;
         */
         let current_body_dir = rotation.to_euler(EulerRot::YXZ).0;
-        let torque = calc_delta_dir(data.angle, current_body_dir, 30. * PI / 180.)
+        let torque = calc_delta_dir(data.angle, current_body_dir, 30. * PI / 180., time.delta_seconds())
             * 10000.
             * time.delta_seconds();
 
@@ -64,7 +64,7 @@ pub fn update_body_position_from_net(
 
         impulse.torque_impulse = rotation.mul_vec3(Vec3::Y * torque);
 
-        if data.movement.x != 0. || data.movement.y != 0. {
+ //       if data.movement.x != 0. || data.movement.y != 0. {
             let wheel_data_movement = if data.movement.length_squared() > 0.001 {
                 sleeping.linear_threshold = -1.;
                 sleeping.angular_threshold = -1.;
@@ -86,7 +86,7 @@ pub fn update_body_position_from_net(
                     //           println!("player prep_wheel_input, ok");
                 }
             }
-        }
+ //       }
     }
 }
 
@@ -97,7 +97,7 @@ pub fn update_player_body_control(
     mut query: Query<(
         &GlobalTransform,
         //       ChangeTrackers<PlayerControlMove>,
-        &PlayerControlMove,
+        &ControlMove,
         &mut ExternalImpulse,
         &mut Sleeping,
         &TankEntityes,

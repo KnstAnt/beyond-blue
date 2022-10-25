@@ -99,17 +99,18 @@ fn setup_terrain_assets(
     mut _meshes: ResMut<Assets<Mesh>>,
     mut _materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    if false {
+        if let Some(scene_handle) = &terrain_scene.scene_handle {
+            println!("terrain setup_terrain_assets");
 
- /*     if let Some(scene_handle) = &terrain_scene.scene_handle {
-        println!("terrain setup_terrain_assets");
-
-        if add_terrain_assets(commands, scene_handle, gltfs, gltf_nodes, gltf_meshes/*, meshes, materials*/) {
-            terrain_scene.loading_state = TerrainState::CreatePhysics;
-            println!("terrain setup_terrain_assets complete");
+                if add_terrain_assets(commands, scene_handle, gltfs, gltf_nodes, gltf_meshes/*, meshes, materials*/) {
+                terrain_scene.loading_state = TerrainState::CreatePhysics;
+                println!("terrain setup_terrain_assets complete");
+            }
         }
+    } else {
+        add_test_plane(commands, terrain_scene, _meshes, _materials);
     }
-*/
-    add_test_plane(commands, terrain_scene, _meshes, _materials);
 }
 
 fn add_terrain_assets(

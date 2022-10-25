@@ -20,7 +20,7 @@ pub struct CameraPlugin<T: 'static + Send + Sync>(pub PhantomData<T>);
 pub struct MyCamera;
 
 #[derive(Debug)]
-pub(crate) struct CameraState {
+pub struct CameraState {
     pub forward: Vec3,
     pub right: Vec3,
     pub dist: f32,           // meters
@@ -34,7 +34,7 @@ pub(crate) struct CameraState {
     pub cursor_latest: Vec2,
     pub global_position: Vec3,
     pub ray: Vec3,
-    ray_hit_position: Option<Vec3>,
+    pub ray_hit_position: Option<Vec3>,
     mleft_press_position: Option<Vec3>,
 }
 
@@ -337,9 +337,9 @@ fn move_camera_target_by_mouse(
                 }
             }
     */
-    if let Some((entity, _toi)) = result {
+    if let Some((_entity, toi)) = result {
         camera_state.ray_hit_position =
-            Some(camera_state.global_position + camera_state.ray * _toi);
+            Some(camera_state.global_position + camera_state.ray * toi);
 
     /*        if mouse_event.just_pressed(MouseButton::Right) {
                if let Ok(mut transform) = target_query.get_single_mut() {
@@ -394,7 +394,10 @@ fn move_camera_target_by_mouse(
     }
 }
 
-fn obr_mouse(mut camera_state: ResMut<CameraState>, mouse_event: Res<Input<MouseButton>>) {
+fn obr_mouse(
+    mut camera_state: ResMut<CameraState>, 
+    mouse_event: Res<Input<MouseButton>>
+) {
     if mouse_event.just_pressed(MouseButton::Right) {
         camera_state.mleft_press_position = camera_state.ray_hit_position.clone();
     } else if mouse_event.just_released(MouseButton::Right) {

@@ -1,3 +1,4 @@
+use bevy::math::Affine3A;
 use bevy::prelude::*;
 use bevy_prototype_debug_lines::*;
 use bevy_rapier3d::prelude::*;
@@ -52,7 +53,11 @@ pub struct GameClose;
 
 pub struct TempForCamera;
 
-pub const MAX_OUT_DELTA_TIME: f32 = 0.3;
+pub const MAX_OUT_DELTA_TIME: f32 = 3.;
+pub const MIN_OUT_DELTA_TIME: f32 = 0.5;
+pub const OUT_ANGLE_EPSILON: f32 = 1.0*std::f32::consts::PI/180.;
+pub const ANGLE_EPSILON: f32 = 0.3*std::f32::consts::PI/180.;
+pub const SPEED_EPSILON: f32 = 0.3*std::f32::consts::PI/180.;
 
 #[derive(Debug, Default)]
 pub struct OutMessageState<T>
@@ -86,6 +91,7 @@ pub struct InMesVec<T>
 #[derive(Component, Debug, Default, PartialEq)]
 pub struct MesState<T: Default + Component> {
     pub data: T,
+    pub time: f64,
 }
 
 #[repr(C)]
@@ -109,13 +115,12 @@ impl Default for GameMessage {
 
 #[derive(Serialize, Deserialize, Component, Debug, Clone, PartialEq)]
 pub struct NewTankData {
-    pub pos: Vec2,
-    pub angle: f32,
+    pub matrix: Mat4,
 }
 
-impl From<TankBodyData> for NewTankData {
-    fn from(data: TankBodyData) -> Self {
-        Self{pos: data.pos, angle: data.angle}
+impl From<Transform> for NewTankData {
+    fn from(transform: Transform) -> Self {
+        Self{matrix: transform.compute_matrix()}
     }
 }
 
@@ -433,13 +438,17 @@ pub fn start_game(
     */
     let mut rng = thread_rng();
 
+  //  let start_pos = Vec3::ZERO;
+  //  let start_angle = 0.;
+
     let start_pos = Vec3::new(rng.gen_range(-10.0..10.0), 0., rng.gen_range(-10.0..10.0));
+    let start_angle = rng.gen_range(-std::f32::consts::PI..std::f32::consts::PI);
 
     if let Some(pos) = get_pos_on_ground(start_pos, &rapier_context) {
         tank_data.vector.push(NewTank {
             handle,
             pos: Vec2::new(pos.x, pos.y),
-            angle: rng.gen_range(-std::f32::consts::PI..std::f32::consts::PI),
+            angle: start_angle,
         });
 
         /*
@@ -529,7 +538,7 @@ pub fn obr_in_raw_message(
     mut in_cannon: ResMut<InMesMap<CannonRotation>>,
     mut in_shot: ResMut<InMesVec<ShotData>>,
     mut in_explosion: ResMut<InMesVec<ExplosionData>>,
-    player_tank_data: Res<OutMessageState<TankBodyData>>,
+    player_tank_data: Query<&Transform, With<ControlMove>>,
     query_tank_data: Query<&PlayerData, With<MesState<TankBodyData>>>,
     mut spawn_tank_data: ResMut<NewTanksData>,
     mut output: ResMut<OutGameMessages<GameMessage>>,
@@ -540,11 +549,18 @@ pub fn obr_in_raw_message(
 ) {
     //    log::info!("net handle_conn_events start");    
     'raw_data: for (player, raw_mes) in raw.data.iter() {
-        if GameMessage::DataRequest == *raw_mes {
-            log::info!("obr_in_raw_message DataRequest");
-            output.data.push(GameMessage::InitData(NewTankData::from(player_tank_data.old_data)));
+        if GameMessage::DataRequest == *raw_mes {            
+            if player_tank_data.is_empty() {
+                log::info!("obr_in_raw_message DataRequest: no player tank data!");
+                return;
+            }            
+
+            log::info!("obr_in_raw_message DataRequest send tank data");
+            
+            let transform = player_tank_data.single();
+            output.data.push(GameMessage::InitData(NewTankData::from(*transform)));
         } else if let GameMessage::InitData(data) = raw_mes {
-            println!( "obr_in_raw_message InitData player:{:?}  pos:{:?}  angle:{:?}", player, data.pos, data.angle);
+ //           println!( "obr_in_raw_message InitData player:{:?}  pos:{:?}  angle:{:?}", player, data.pos, data.angle);
 
             for exist_player in &query_tank_data {
                 if exist_player.handle == *player { // tank for player is already spawned
@@ -552,10 +568,12 @@ pub fn obr_in_raw_message(
                 }
             }
 
+            let transform = Transform::from_matrix(data.matrix);
+
             spawn_tank_data.vector.push(NewTank {
                 handle: *player,
-                pos: data.pos,
-                angle: data.angle,
+                pos: Vec2{x: transform.translation.x, y: transform.translation.z},
+                angle: transform.rotation.to_euler(EulerRot::YXZ).0,
             });
         } else if let GameMessage::BodyMove(data) = raw_mes {
             //                   log::info!("Network handle_conn_events TankBodyOutData");
@@ -580,41 +598,54 @@ pub fn obr_in_raw_message(
 }
 
 pub fn obr_in_mes_map<T>(
+    time: Res<Time>,
     mut input: ResMut<InMesMap<T>>,
     mut query: Query<(&mut MesState<T>, &PlayerData)>,
-    mut output: ResMut<OutGameMessages<GameMessage>>,
+//    mut output: ResMut<OutGameMessages<GameMessage>>,
 ) where T: 'static + Serialize + DeserializeOwned + Default + Debug + Component + PartialEq + Copy {
     for (mut state, player) in query.iter_mut() {
         if let Some(data) = input.data.get_mut(&player.handle) {
             state.data = *data;
-            log::info!("obr_in_mes_map data:{:?}", data);
+            state.time = time.seconds_since_startup();
+ //           log::info!("obr_in_mes_map data:{:?}", data);
         }
     }
 
     input.data.clear();
 }
 
+
+//TODO send to player request for the init data
 pub fn obr_in_mes_tank_body(
+    time: Res<Time>,
     mut input: ResMut<InMesMap<TankBodyData>>,
     mut query: Query<(&mut MesState<TankBodyData>, &PlayerData)>,
-    mut output: ResMut<OutGameMessages<GameMessage>>,
+//    mut output: ResMut<OutGameMessages<GameMessage>>,
+    mut spawn_tank_data: ResMut<NewTanksData>,
 ) {
     for (mut state, player) in query.iter_mut() {
         if let Some(data) = input.data.get_mut(&player.handle) {
             state.data = *data;
-            log::info!("obr_in_mes_tank_body data:{:?}", data);
+            state.time = time.seconds_since_startup();
+//            log::info!("obr_in_mes_tank_body data:{:?}", data);
         }
     }
 
-    'input_cicle: for (input_player, _data) in input.data.iter() {
+    'input_cicle: for (input_player, data) in input.data.iter() {
 
         for (mut _state, query_player) in query.iter() {
             if *input_player == query_player.handle {
                 continue 'input_cicle;
             }
         }
-        //TODO send to player request for the init data
-        output.data.push(GameMessage::DataRequest);
+        
+//        output.data.push(GameMessage::DataRequest);
+        spawn_tank_data.vector.push(NewTank {
+            handle: *input_player,
+            pos: data.pos,
+            angle: data.angle,
+        });
+
         break;
     }
 
@@ -664,7 +695,8 @@ pub fn set_network_control(
                 movement: Vec2::ZERO,
                 pos,
                 angle,
-            }
+            },
+            time: 0.,
         });
     commands
         .entity(entityes.turret)

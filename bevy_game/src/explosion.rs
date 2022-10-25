@@ -116,7 +116,7 @@ pub fn add_explosion(
 
     //    info!("add_explosion process");
 
-    log::info!("explosion add_explosion pos: {:?}", pos);
+    log::info!("add_explosion pos: {:?}", pos);
 
     commands
         .spawn_bundle(PointLightBundle {

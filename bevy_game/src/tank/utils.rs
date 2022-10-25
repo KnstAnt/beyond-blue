@@ -1,38 +1,38 @@
 //use bevy::prelude::Component;
 //use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-pub fn calc_delta_dir(new_dir: f32, old_dir: f32, max_delta: f32) -> f32 {
-    let mut delta = new_dir - old_dir;
+use std::f32::consts::PI;
 
+use bevy::prelude::Vec3;
+
+pub fn calc_delta_dir(target_dir: f32, old_dir: f32, rot_speed: f32, delta_time: f32) -> f32 {
+    let delta = normalize(target_dir - old_dir);
+    let max_delta = rot_speed.abs() * delta_time;
     let res = if delta.abs() > max_delta {
-        if delta.abs() > std::f32::consts::PI {
-            delta = -delta;
-        }
-
-        max_delta*delta.signum()
-
+        max_delta * delta.signum() + delta*(delta_time/1.0)
     } else {
         delta
     };
 
     res
 }
-pub fn calc_dir(dir: f32, old_dir: f32, rot_speed: f32, delta_time: f32) -> f32 {
-    let delta = calc_delta_dir(dir, old_dir, rot_speed * delta_time); 
-    let new_dir = dir + delta;//TODO implement ping time
 
-  //  log::info!("Tank calc_dir dir:{:?} old_dir:{:?} rot_speed:{:?} delta_time:{:?} delta:{:?} new_dir:{:?}",
-  //      dir, old_dir, rot_speed, delta_time, delta, new_dir );
+pub fn calc_dir(target_dir: f32, old_dir: f32, rot_speed: f32, delta_time: f32) -> f32 {
+    let delta = calc_delta_dir(target_dir, old_dir, rot_speed, delta_time);
+    let new_dir = old_dir + delta; //TODO implement ping time
+
+    //  log::info!("Tank calc_dir dir:{:?} old_dir:{:?} rot_speed:{:?} delta_time:{:?} delta:{:?} new_dir:{:?}",
+    //      dir, old_dir, rot_speed, delta_time, delta, new_dir );
 
     normalize(new_dir)
 }
 
 pub fn normalize(mut dir: f32) -> f32 {
-    if dir.abs() > std::f32::consts::PI {
+    if dir > std::f32::consts::PI {
         dir -= std::f32::consts::TAU;
     }
 
-    if dir.abs() < -std::f32::consts::PI {
+    if dir < -std::f32::consts::PI {
         dir += std::f32::consts::TAU;
     }
 
@@ -66,4 +66,3 @@ pub fn calc_rotation_speed(
     //                  dbg![time.delta_seconds(), delta_acceleration, old_rotation, new_rotation];
     new_speed
 }
-

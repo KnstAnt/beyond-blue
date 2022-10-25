@@ -18,7 +18,7 @@ pub fn update_cannon_debug_line(
         let shot_speed = data.shot_speed_delta * control.time + data.shot_speed_min;
 
         let mut pos = global_transform.translation();
-        let mut dir = global_transform.back() * shot_speed;
+        let mut dir = global_transform.forward() * shot_speed;
         let delta_time = 0.05;
         let delta_y = -9.81 * delta_time;
 
@@ -53,9 +53,9 @@ pub fn create_player_cannon_shot(
 
     control.is_shot = false;
 
-    let shot_speed = data.shot_speed_min + data.shot_speed_delta * control.time;
+    let shot_speed = data.shot_speed(control.time);
     let shot_pos = global_transform.translation();
-    let shot_vel = global_transform.back() * shot_speed;
+    let shot_vel = global_transform.forward() * shot_speed;
 
     let out_data = ShotData{is_shot: true, pos: shot_pos, vel: shot_vel};
 
@@ -64,7 +64,7 @@ pub fn create_player_cannon_shot(
     commands
             .spawn_bundle(PbrBundle {
                 mesh: meshes.add(Mesh::from(UVSphere {
-                    radius: 0.1,
+                    radius: data.radius,
                     sectors: 8,
                     stacks: 8,
                 })),
@@ -82,7 +82,7 @@ pub fn create_player_cannon_shot(
             .insert(ShotExplosionData::new(data.shot_live_max_time, data.explosion_force))
             .insert(PlayerData {handle: *local_handles.handles.first().unwrap()})
             .insert(bevy_rapier3d::prelude::RigidBody::Dynamic)
-            .insert(bevy_rapier3d::prelude::Collider::ball(0.02))
+            .insert(bevy_rapier3d::prelude::Collider::ball(data.radius))
             //                .insert_bundle(collider)
             .insert(bevy_rapier3d::prelude::ActiveEvents::COLLISION_EVENTS)
             .insert(Restitution::coefficient(0.01))
