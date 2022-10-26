@@ -15,12 +15,13 @@ pub fn update_cannon_debug_line(
 ) {
     for (global_transform, data, control) in query.iter() {
         //    if let Ok((global_transform, cannon_shot_data)) = query.get_single() {
-        let shot_speed = data.shot_speed_delta * control.time + data.shot_speed_min;
-
+        let shot_speed = data.shot_speed(control.time);
         let mut pos = global_transform.translation();
         let mut dir = global_transform.forward() * shot_speed;
-        let delta_time = 0.05;
+        let delta_time = 0.01;
         let delta_y = -9.81 * delta_time;
+
+        dir = Vec3::new(dir.x, dir.y + delta_y*0.5, dir.z);
 
         while pos.y > -10. {
             lines.line_colored(pos, pos + dir * delta_time, 0.0, Color::GREEN);

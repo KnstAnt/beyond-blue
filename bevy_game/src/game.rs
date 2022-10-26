@@ -58,6 +58,8 @@ pub const MIN_OUT_DELTA_TIME: f32 = 0.5;
 pub const OUT_ANGLE_EPSILON: f32 = 1.0*std::f32::consts::PI/180.;
 pub const ANGLE_EPSILON: f32 = 0.3*std::f32::consts::PI/180.;
 pub const SPEED_EPSILON: f32 = 0.3*std::f32::consts::PI/180.;
+pub const POS_EPSILON: f32 = 0.1;
+pub const POS_EPSILON_QRT: f32 = POS_EPSILON*POS_EPSILON;
 
 #[derive(Debug, Default)]
 pub struct OutMessageState<T>
@@ -169,7 +171,7 @@ impl Plugin for GamePlugin {
         app.add_plugin(DebugLinesPlugin::with_depth_test(true))
             .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
             //            .add_plugin(RapierPhysicsPlugin::<&CustomFilterTag>::default())
-            //          .add_plugin(RapierDebugRenderPlugin::default())
+            .add_plugin(RapierDebugRenderPlugin::default())
             .add_plugin(CameraPlugin::<TempForCamera>::default())
             .add_plugin(TerrainPlugin)
             .add_plugin(PlayerPlugin)

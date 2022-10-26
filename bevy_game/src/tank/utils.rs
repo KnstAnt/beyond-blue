@@ -5,8 +5,13 @@ use std::f32::consts::PI;
 
 use bevy::prelude::Vec3;
 
-pub fn calc_delta_dir(target_dir: f32, old_dir: f32, rot_speed: f32, delta_time: f32) -> f32 {
-    let delta = normalize(target_dir - old_dir);
+
+pub fn delta_dir(target_dir: f32, old_dir: f32) -> f32 {
+    normalize(target_dir - old_dir)
+}
+
+pub fn delta_dir_max(target_dir: f32, old_dir: f32, rot_speed: f32, delta_time: f32) -> f32 {
+    let delta = delta_dir(target_dir, old_dir);
     let max_delta = rot_speed.abs() * delta_time;
     let res = if delta.abs() > max_delta {
         max_delta * delta.signum() + delta*(delta_time/1.0)
@@ -18,7 +23,7 @@ pub fn calc_delta_dir(target_dir: f32, old_dir: f32, rot_speed: f32, delta_time:
 }
 
 pub fn calc_dir(target_dir: f32, old_dir: f32, rot_speed: f32, delta_time: f32) -> f32 {
-    let delta = calc_delta_dir(target_dir, old_dir, rot_speed, delta_time);
+    let delta = delta_dir_max(target_dir, old_dir, rot_speed, delta_time);
     let new_dir = old_dir + delta; //TODO implement ping time
 
     //  log::info!("Tank calc_dir dir:{:?} old_dir:{:?} rot_speed:{:?} delta_time:{:?} delta:{:?} new_dir:{:?}",

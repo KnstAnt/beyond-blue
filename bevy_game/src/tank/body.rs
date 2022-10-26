@@ -3,8 +3,9 @@ use bevy_rapier3d::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
 
-use crate::game::{GameMessage, MesState, OutGameMessages, OutMessageState, MAX_OUT_DELTA_TIME};
-use crate::player::ControlMove;
+use crate::game::{GameMessage, MesState, OutGameMessages, OutMessageState, MAX_OUT_DELTA_TIME, POS_EPSILON_QRT, ANGLE_EPSILON, POS_EPSILON, OUT_ANGLE_EPSILON, MIN_OUT_DELTA_TIME};
+use crate::network::PingList;
+use crate::player::{ControlMove, PlayerData};
 use crate::tank::{TankEntityes, WheelData};
 
 use super::utils::*;
@@ -18,23 +19,28 @@ pub struct Data {
 }
 
 pub fn update_body_position_from_net(
-    time: Res<Time>,
+ //   time: Res<Time>,
+ //   ping: Res<PingList>,
     mut data_query: Query<(
         &GlobalTransform,
         //       ChangeTrackers<State<Message<Data>>>,
         &MesState<Data>,
-        &mut ExternalImpulse,
+  //      &mut ExternalImpulse,
+        &mut ExternalForce,
         &mut Sleeping,
         &TankEntityes,
+  //      &PlayerData,
     )>,
     mut wheel_data_query: Query<&mut WheelData>,
 ) {
     for (
         global_transform,
         state,
-        /*tank_control_data, mut forces,*/ mut impulse,
+        /*tank_control_data, mut forces, mut impulse,*/
+        mut force,
         mut sleeping,
         entityes,
+   //     player,
     ) in data_query.iter_mut()
     {
         let (_scale, rotation, translation) = global_transform.to_scale_rotation_translation();
@@ -46,26 +52,20 @@ pub fn update_body_position_from_net(
         //       log::info!("tank mod update_body_position translation.pos {} input.pos{} delta_pos{}",
         //           transform.translation, tank_control_body.pos, delta_pos);
 
-        impulse.impulse = delta_pos * delta_pos.length_squared() * 100. * time.delta_seconds();
+        let length_squared = delta_pos.length_squared();
+        if length_squared > POS_EPSILON_QRT {                      
+            force.force = delta_pos * ((1. + length_squared).powf(3.0) - 1.) * 100.;
+        }
 
-        /*           impulse.impulse = if delta_pos.length_squared() > 1. {
-                        delta_pos.normalize_or_zero()
-                    } else {
-                        delta_pos
-                    } * 10.;
-        */
-        let current_body_dir = rotation.to_euler(EulerRot::YXZ).0;
-        let torque = calc_delta_dir(data.angle, current_body_dir, 30. * PI / 180., time.delta_seconds())
-            * 10000.
-            * time.delta_seconds();
+        let delta_angle = delta_dir(data.angle, rotation.to_euler(EulerRot::YXZ).0);
+        if delta_angle.abs() > ANGLE_EPSILON {        
+            let torque = ((1. + delta_angle).powf(3.0) - 1.) * 100.;
+            force.torque = rotation.mul_vec3(Vec3::Y * torque);
+        }
 
-        //       log::info!("tank mod update_body_position current_dir: {}; from_net.dir: {}; torque: {}",
-        //       current_body_dir, tank_control_body.dir, torque);
+//        log::info!("update_body_position delta_pos: {}; tmp_impulse: {}; current_dir: {}; from_net.dir: {}; torque: {}", delta_pos, tmp_impulse, current_body_dir, data.angle, torque);
 
-        impulse.torque_impulse = rotation.mul_vec3(Vec3::Y * torque);
-
- //       if data.movement.x != 0. || data.movement.y != 0. {
-            let wheel_data_movement = if data.movement.length_squared() > 0.001 {
+            let wheel_data_movement = if data.movement.length_squared() > 0.1 {
                 sleeping.linear_threshold = -1.;
                 sleeping.angular_threshold = -1.;
                 sleeping.sleeping = false;
@@ -98,7 +98,7 @@ pub fn update_player_body_control(
         &GlobalTransform,
         //       ChangeTrackers<PlayerControlMove>,
         &ControlMove,
-        &mut ExternalImpulse,
+//        &mut ExternalImpulse,
         &mut Sleeping,
         &TankEntityes,
     )>,
@@ -117,7 +117,7 @@ pub fn update_player_body_control(
         global_transform,
         //     tracker,
         control,
-        /*tank_control_data, mut forces,*/ mut impulse,
+        /*tank_control_data, mut forces, mut impulse,*/
         mut sleeping,
         entityes,
     ) = query.single_mut();
@@ -127,10 +127,14 @@ pub fn update_player_body_control(
     let new_dir = rotation.to_euler(EulerRot::YXZ).0;
 
     let is_moved = control.movement.x != 0. || control.movement.y != 0.;
-    let is_changed = control.movement.x != out_data_state.old_data.movement.x
-                        || control.movement.y != out_data_state.old_data.movement.y;
+    let is_changed =  normalize(new_dir - out_data_state.old_data.angle).abs() > OUT_ANGLE_EPSILON ||
+                            (new_pos - out_data_state.old_data.pos).length_squared() > POS_EPSILON_QRT;
+    let is_started_or_stoped = control.movement.x != out_data_state.old_data.movement.x ||
+                                    control.movement.y != out_data_state.old_data.movement.y;
 
-    if is_changed || (is_moved && out_data_state.delta_time >= MAX_OUT_DELTA_TIME) {
+    if (is_changed && out_data_state.delta_time >= MIN_OUT_DELTA_TIME) || 
+        (is_moved && out_data_state.delta_time >= MAX_OUT_DELTA_TIME) ||
+        is_started_or_stoped {
         out_data_state.old_data.movement = control.movement;
         out_data_state.old_data.pos = new_pos;
         out_data_state.old_data.angle = new_dir;
@@ -139,7 +143,7 @@ pub fn update_player_body_control(
         out_data_state.delta_time = 0.;
     }
 
-    if is_changed {
+    if is_moved {
         let wheel_data_movement = if control.movement.length_squared() > 0.001 {
             sleeping.linear_threshold = -1.;
             sleeping.angular_threshold = -1.;

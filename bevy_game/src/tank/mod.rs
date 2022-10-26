@@ -6,7 +6,7 @@ use std::{collections::LinkedList, f32::consts::PI};
 use bevy_rapier3d::prelude::*;
 use iyes_loopless::prelude::*;
 
-use crate::{AppState, player::{LocalHandles}, game::{set_player_control, set_network_control, OutMessageState}, terrain::get_pos_on_ground, menu::is_play_online};
+use crate::{AppState, player::{LocalHandles}, game::{set_player_control, set_network_control, OutMessageState, MesState}, terrain::get_pos_on_ground, menu::is_play_online};
 use crate::loading::ModelAssets;
 use crate::player:: PlayerData;
 
@@ -192,24 +192,34 @@ fn setup(
 pub fn obr_spawn_tanks(
     local_handles: Res<LocalHandles>,
     mut data: ResMut<NewTanksData>,
+    query: Query<(&MesState<TankBodyData>, &PlayerData)>,
     mut commands: Commands,
     model_assets: Res<ModelAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     rapier_context: Res<RapierContext>,
 ) {
-    for data in &data.vector {
-/*      create_debug_tank(
+    'input_cicle: for data in &data.vector {
+
+        for (mut _state, player) in query.iter() {
+            if data.handle == player.handle {
+                continue 'input_cicle;
+            }
+        }
+
+        if let Some(pos) = get_pos_on_ground(Vec3::new(data.pos.x, 1., data.pos.y), &rapier_context) {   
+
+/*
+        let entityes = create_debug_tank(
             &mut commands,
             data.handle,
-            data.pos,
+            Vec3::new(pos.x, pos.y + 1., pos.z),
             data.angle,
             &mut meshes,
             &mut materials,
         );
 */
-        if let Some(pos) = get_pos_on_ground(Vec3::new(data.pos.x, 1., data.pos.y), &rapier_context) {   
-
+        
             let entityes = create_tank(
                 &mut commands,
                 data.handle,
@@ -276,7 +286,7 @@ fn create_debug_tank(
 
     let cannon = commands
         .spawn_bundle(SpatialBundle {
-            transform: Transform::from_translation(Vec3::new(0., 0.50, 0.45)),
+            transform: Transform::from_translation(Vec3::new(0., 0.50, -0.45)),
             ..Default::default()
         })
         .id();
@@ -285,7 +295,7 @@ fn create_debug_tank(
 
     let fire_point = commands
         .spawn_bundle(SpatialBundle {
-            transform: Transform::from_translation(Vec3::new(0., 0., 0.5)),
+            transform: Transform::from_translation(Vec3::new(0., 0., -0.5)),
             ..Default::default()
         })
         .insert(TankShotData::init())
@@ -293,7 +303,7 @@ fn create_debug_tank(
             parent.spawn_bundle(PbrBundle {
                 mesh: meshes.add(Mesh::from(Cube::new(0.1))),
                 material: materials.add(Color::RED.into()),
-                transform: Transform::from_translation(Vec3::new(0., 0., 0.5)),
+                transform: Transform::from_translation(Vec3::new(0., 0., -0.5)),
                 //        rotation:
                 ..Default::default()
             });

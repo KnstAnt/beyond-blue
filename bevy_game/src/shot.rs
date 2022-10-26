@@ -233,12 +233,13 @@ fn process_shots_game_local(
         Entity,
         &GlobalTransform,
         &mut ShotExplosionData,
+        &bevy_rapier3d::prelude::Collider,
         &PlayerData,
     )>,
 ) {
     //info!("remove_shots");
 
-    for (entity, global_transform, mut shot_data, player) in query.iter_mut() {
+    for (entity, global_transform, mut shot_data, collider, player) in query.iter_mut() {
         // timers gotta be ticked, to work
         shot_data.timer.tick(time.delta());
 
@@ -251,11 +252,19 @@ fn process_shots_game_local(
             return;
         }
 
+
+        let half_height = if let Some(ball) = collider.as_ball() {
+            ball.radius() as f32
+        } else {
+            0.1f32
+        };
+
+
         // bug: test terrain
-        if let Some(mut pos) = get_pos_on_ground(
+        if let Some(pos) = get_pos_on_ground(
             Vec3::new(
                 global_transform.translation().x,
-                0.1,
+                half_height,
                 global_transform.translation().z,
             ),
             &rapier_context,
@@ -264,7 +273,7 @@ fn process_shots_game_local(
                 continue;
             }
 
-            pos.y += 0.1;
+ //           pos.y += half_height;
             //            println!("remove_shots get_pos_on_ground pos: {:?}  translation: {:?}", pos, global_transform.translation());
             //    log::info!("Shot remove_shots pos:{:?}", pos);
 

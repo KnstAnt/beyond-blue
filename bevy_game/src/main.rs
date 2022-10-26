@@ -29,7 +29,7 @@ async fn main() {
                 .unwrap(),
         )
         .add_plugins(DefaultPlugins)
- //       .add_plugin(WorldInspectorPlugin::new())
+//        .add_plugin(WorldInspectorPlugin::new())
         .add_system(bevy::window::close_on_esc)
         .add_plugin(AplicationPlugin)
         .run();
