@@ -143,7 +143,7 @@ pub fn update_player_body_control(
         out_data_state.delta_time = 0.;
     }
 
-    if is_moved {
+    if is_started_or_stoped {
         let wheel_data_movement = if control.movement.length_squared() > 0.001 {
             sleeping.linear_threshold = -1.;
             sleeping.angular_threshold = -1.;

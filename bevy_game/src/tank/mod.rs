@@ -11,6 +11,12 @@ use crate::loading::ModelAssets;
 use crate::player:: PlayerData;
 
 
+pub const COLLISION_TERRAIN: u32 = 0b0001;
+pub const COLLISION_UNIT: u32 = 0b0010;
+pub const COLLISION_MISSILE: u32 = 0b0100;
+pub const COLLISION_TRIGGER: u32 = 0b1000;
+
+
 mod body;
 mod body_physics;
 mod turret;
@@ -209,7 +215,7 @@ pub fn obr_spawn_tanks(
 
         if let Some(pos) = get_pos_on_ground(Vec3::new(data.pos.x, 1., data.pos.y), &rapier_context) {   
 
-/*
+/* 
         let entityes = create_debug_tank(
             &mut commands,
             data.handle,
@@ -219,7 +225,7 @@ pub fn obr_spawn_tanks(
             &mut materials,
         );
 */
-        
+       
             let entityes = create_tank(
                 &mut commands,
                 data.handle,
@@ -249,7 +255,7 @@ fn create_debug_tank(
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
 ) -> TankEntityes {
-    let body_size = Vec3::new(1., 0.45, 1.6);
+    let body_size = Vec3::new(1.3, 0.45, 1.6);
     let config = VehicleConfig::new(body_size);
 
     let body = commands
@@ -266,8 +272,8 @@ fn create_debug_tank(
         pos,
         angle,
         config,
-        CollisionGroups::new(0b0010, 0b1111),
-        SolverGroups::new(0b0010, 0b1111),
+ //       CollisionGroups::new(0b0010, 0b1111),
+//        SolverGroups::new(0b0010, 0b1111),
     );
 
     /*    commands
@@ -354,7 +360,7 @@ fn create_tank(
     materials: &mut Assets<StandardMaterial>,
   //  material: &Handle<bevy::prelude::StandardMaterial>,
 ) -> TankEntityes {
-    let body_size = Vec3::new(1., 0.45, 1.6);
+    let body_size = Vec3::new(1.3, 0.45, 1.6);
     let config = VehicleConfig::new(body_size);
 
     let body = commands
@@ -377,8 +383,8 @@ fn create_tank(
         pos,
         angle,
         config,
-        CollisionGroups::new(0b0010, 0b1111),
-        SolverGroups::new(0b0010, 0b1111),
+ //       CollisionGroups::new(0b0010, 0b1111),
+ //       SolverGroups::new(0b0010, 0b1111),
     );
 
     let turret = commands

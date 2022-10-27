@@ -2,6 +2,8 @@ use std::collections::LinkedList;
 use bevy::prelude::*;
 use bevy_rapier3d::{prelude::*, rapier::prelude::JointAxis};
 
+use super::{COLLISION_UNIT, COLLISION_TERRAIN, COLLISION_MISSILE, COLLISION_TRIGGER};
+
 //use crate::input::MyInput;
 
 //use nalgebra as nalg;
@@ -56,19 +58,24 @@ pub struct VehicleConfig {
 
 impl VehicleConfig {
     pub fn new(body_size: Vec3) -> Self {
+
+        let wheel_r = body_size.z * 0.16;
+        let wheel_hh = body_size.x * 0.1;
+        let axle_half_size = body_size.z * 0.03;
+
         Self {
             body_half_size: body_size * 0.5,
 
-            axle_half_size: body_size.z * 0.03,
+            axle_half_size,
 
-            wheel_hh: body_size.x * 0.1,
-            wheel_r: body_size.z * 0.12,
+            wheel_hh,
+            wheel_r,
 
-            offset_x: body_size.x * 0.6,
-            offset_y: -body_size.y * 0.6,
-            offset_z: body_size.z * 0.4,
+            offset_x: body_size.x * 0.5 - wheel_r * 0.5 - axle_half_size * 1.01,
+            offset_y: -body_size.y * 0.45,
+            offset_z: body_size.z * 0.3,
 
-            wheel_offset: body_size.x * 0.25,
+            wheel_offset: wheel_r * 0.5 + axle_half_size * 0.01,
         }
     }
 }
@@ -79,8 +86,8 @@ pub fn create_body(
     body_pos: Vec3,
     body_angle: f32,
     vehicle_cfg: VehicleConfig,
-    collision_groups: CollisionGroups,
-    solver_groups: SolverGroups,
+//    collision_groups: CollisionGroups,
+//    solver_groups: SolverGroups,
 ) -> (Entity, LinkedList<Entity>) {
     let friction_central_wheel = 1.5;
     let friction_outside_wheel = 0.5;
@@ -93,10 +100,12 @@ pub fn create_body(
         body_angle,
         vehicle_cfg.body_half_size,
         &mut commands,
-        collision_groups,
-        solver_groups,
+        CollisionGroups::new(COLLISION_UNIT, COLLISION_TERRAIN+COLLISION_UNIT+COLLISION_MISSILE+COLLISION_TRIGGER),
+        SolverGroups::new(COLLISION_UNIT, COLLISION_TERRAIN+COLLISION_UNIT+COLLISION_MISSILE+COLLISION_TRIGGER),
     );
 
+    let wheel_collision_group = CollisionGroups::new(COLLISION_UNIT, COLLISION_TERRAIN);
+    let wheel_solver_group = SolverGroups::new(COLLISION_UNIT, COLLISION_TERRAIN);
     {
         let offset = Vec3::new(
             vehicle_cfg.offset_x,
@@ -112,8 +121,8 @@ pub fn create_body(
             offset,
             friction_outside_wheel,
             &vehicle_cfg,
-            collision_groups,
-            solver_groups,
+            wheel_collision_group,
+            wheel_solver_group,
             &mut commands,
         ));
     }
@@ -129,8 +138,8 @@ pub fn create_body(
             offset,
             friction_central_wheel,
             &vehicle_cfg,
-            collision_groups,
-            solver_groups,
+            wheel_collision_group,
+            wheel_solver_group,
             &mut commands,
         ));
     }
@@ -150,8 +159,8 @@ pub fn create_body(
             offset,
             friction_outside_wheel,
             &vehicle_cfg,
-            collision_groups,
-            solver_groups,
+            wheel_collision_group,
+            wheel_solver_group,
             &mut commands,
         ));
     }
@@ -171,8 +180,8 @@ pub fn create_body(
             offset,
             friction_outside_wheel,
             &vehicle_cfg,
-            collision_groups,
-            solver_groups,
+            wheel_collision_group,
+            wheel_solver_group,
             &mut commands,
         ));
     }
@@ -188,8 +197,8 @@ pub fn create_body(
             offset,
             friction_central_wheel,
             &vehicle_cfg,
-            collision_groups,
-            solver_groups,
+            wheel_collision_group,
+            wheel_solver_group,
             &mut commands,
         ));
     }
@@ -209,71 +218,13 @@ pub fn create_body(
             offset,
             friction_outside_wheel,
             &vehicle_cfg,
-            collision_groups,
-            solver_groups,
+            wheel_collision_group,
+            wheel_solver_group,
             &mut commands,
         ));
     }
 
     (body, wheels)
-
-    /*    let mut body = commands
-            .spawn_bundle(TransformBundle {
-                local: Transform::from_translation(
-                    get_pos_on_ground(
-                        Vec3::new(start_pos_x + 2.0, 0.7, start_pos_z + 2.0),
-                        &rapier_context,
-                    )
-                    .unwrap(),
-                ),
-                global: GlobalTransform::identity(),
-            })
-            .insert(PlayerControlBody)
-            .insert(bevy_rapier3d::prelude::RigidBody::Dynamic)
-            .insert(bevy_rapier3d::prelude::Collider::cuboid(0.68, 0.25, 0.9))
-            .insert(CollisionGroups::new(0b0010, 0b1111))
-            .insert(SolverGroups::new(0b0010, 0b1111))
-            .insert(Restitution::coefficient(0.7))
-            .insert(Damping {
-                linear_damping: 5.0,
-                angular_damping: 20.0,
-            })
-            .insert(ColliderMassProperties::Density(2.0))
-            //     .insert(Transform::from_xyz(-6.0, 0.25, -2.0))
-            .insert(ExternalImpulse {
-                impulse: Vec3::new(0.0, 0.0, 0.0),
-                torque_impulse: Vec3::new(0.0, 0.0, 0.0),
-            })
-            .id();
-
-
-            let y = -0.2;
-
-            for x in -1..= 1 {
-                for z in -1 ..= 1 {
-                    if x == 0 {
-                        continue;
-                    }
-
-                    let pos = Vec3::new(x as f32, y, z as f32);
-                    let revolute = RevoluteJointBuilder::new(Vec3::X)
-                    .local_anchor1(pos)
-                    .motor_velocity(0.0, 10.0)
-                    .motor_max_force(100.0);
-
-                    let revolute_joint = ImpulseJoint::new(body, revolute);
-                    let mut wheel = commands
-                    .spawn_bundle(TransformBundle::from(Transform::from_xyz(pos.x, pos.y, pos.z)))
-                    .insert(RigidBody::Dynamic)
-                    .insert(bevy_rapier3d::prelude::Collider::ball(0.3))
-                    .insert(Restitution::coefficient(0.01))
-                    .insert(Friction::coefficient(3.0))
-                    .insert(revolute_joint)
-                    .insert(PlayerControlBodyWheelMotor {dx: x as f32})
-                    .id();
-                }
-            }
-    */
 }
 
 fn add_components_to_body(
@@ -338,7 +289,7 @@ fn add_components_to_body(
 
 fn spawn_attached_wheel(
     prefix: String,
-    joint_tag: Tag,
+    _joint_tag: Tag,
     wheel_tag: Tag,
     body: Entity,
     body_pos: Vec3,
@@ -349,16 +300,14 @@ fn spawn_attached_wheel(
     solver_groups: SolverGroups,
     mut commands: &mut Commands,
 ) -> Entity {
-    let x_sign = main_offset.x * (1.0 / main_offset.x.abs());
-    let wheel_offset = Vec3::X * vehicle_cfg.wheel_offset * x_sign;
-
+    let wheel_offset = Vec3::X * vehicle_cfg.wheel_offset * main_offset.x.signum();
     let axle_pos = body_pos + main_offset;
     let axle = spawn_axle(
         &prefix,
         axle_pos,
         vehicle_cfg.axle_half_size,
-        collision_groups,
-        solver_groups,
+//        collision_groups,
+//        solver_groups,
         &mut commands,
     );
 
@@ -404,8 +353,8 @@ fn spawn_axle(
     prefix: &String,
     pos_in: Vec3,
     half_size: f32, //Vec3,
-    collision_groups: CollisionGroups,
-    solver_groups: SolverGroups,
+//    collision_groups: CollisionGroups,
+//    solver_groups: SolverGroups,
     commands: &mut Commands,
 ) -> Entity {
     //	let tmp_pos = pos_in + Vec3::new(0.0, 0.3, 0.0);
@@ -435,8 +384,8 @@ fn spawn_axle(
             name: format!("{} Axle", prefix),
         })
         //		.insert(Tag::Axle)
-        .insert(collision_groups)
-        .insert(solver_groups)
+//        .insert(collision_groups)
+//        .insert(solver_groups)
         .id()
 }
 
