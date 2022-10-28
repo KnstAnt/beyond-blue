@@ -467,32 +467,46 @@ pub fn start_game(
         });
 
         
-                let start_pos_x = start_pos.x;
-                let start_pos_z = start_pos.z;
-
                 let mut rng = rand::thread_rng();
             //    let y: f64 = rng.gen(); // generates a float between 0 and 1
 
                 // Spawn obstacles
-                for x in -20..=20 {
-                    for z in -20..=20 {
-                        let size: f32 = rng.gen_range(0.05..0.1);
+                let delta = 15.;
+                let pos_min_x = start_pos.x - delta;
+                let pos_max_x = start_pos.x + delta;
+                let pos_min_z = start_pos.z - delta;
+                let pos_max_z = start_pos.z + delta;
+
+                let qnt = (delta*delta*30.) as usize;
+
+                    for i in 0..qnt {
+                        let pos_x = rng.gen_range(pos_min_x..pos_max_x);
+                        let pos_z = rng.gen_range(pos_min_z..pos_max_z);
+
+                        let size: f32 = if i < 100 {
+                            rng.gen_range(0.25..0.6)
+                        } else {
+                            rng.gen_range(0.07..0.2)
+                        };
+
                         let half_size = size/2.;
+
+                        let linear_damping = 0.2/size;
+                        let angular_damping = 0.03/size;
+
+                        if let Some(pos) = get_pos_on_ground(
+                            Vec3::new(
+                                pos_x,
+                                half_size + 1.,
+                                pos_z,
+                            ),
+                            &rapier_context,
+                        ) {
                         commands
                             .spawn_bundle(PbrBundle {
                                 mesh: meshes.add(Mesh::from(shape::Cube::new(half_size*2.))),
                                 material: materials.add(Color::BLACK.into()),
-                                transform: Transform::from_translation(
-                                    get_pos_on_ground(
-                                        Vec3::new(
-                                            start_pos_x + x as f32 * 0.4,
-                                            half_size,
-                                            start_pos_z + z as f32 * 0.4,
-                                        ),
-                                        &rapier_context,
-                                    )
-                                    .unwrap(),
-                                ),
+                                transform: Transform::from_translation(pos),
                                 ..Default::default()
                             })
                             .insert(bevy_rapier3d::prelude::RigidBody::Dynamic)
@@ -502,15 +516,14 @@ pub fn start_game(
                             .insert(Restitution::coefficient(0.7))
                             .insert(ColliderMassProperties::Density(1.0))
                             .insert(Damping {
-                                linear_damping: 0.5,
-                                angular_damping: 0.3,
+                                linear_damping,
+                                angular_damping,
                             })
                         //                .insert(Transform::from_xyz(x as f32 * 4.0, 0.5, z as f32 * 4.0))
                         //                    .insert(PathObstacle);
                             ;
-                    }
-                }
-        
+                        }
+                    }       
     }
 
     println!("Game start_game complete, handle:{}", handle);

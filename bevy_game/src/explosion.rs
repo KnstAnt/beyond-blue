@@ -2,11 +2,12 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use iyes_loopless::prelude::*;
 
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::AppState;
 
-use crate::game::{InMesVec, COLLISION_UNIT, COLLISION_TRIGGER, COLLISION_ENVIRONMENT};
+use crate::game::{InMesVec, COLLISION_ENVIRONMENT, COLLISION_TRIGGER, COLLISION_UNIT};
 use crate::menu::is_play_online;
 use crate::player::PlayerData;
 
@@ -35,7 +36,6 @@ impl Data {
         }
     }
 }
-
 
 #[derive(Component)]
 struct Marker {
@@ -136,9 +136,15 @@ pub fn add_explosion(
         .insert(bevy_rapier3d::prelude::Collider::ball(radius))
         .insert(bevy_rapier3d::geometry::Sensor)
         .insert(bevy_rapier3d::prelude::ActiveEvents::COLLISION_EVENTS)
-        .insert(CollisionGroups::new(COLLISION_TRIGGER, COLLISION_UNIT+COLLISION_ENVIRONMENT))
-        .insert(SolverGroups::new(COLLISION_TRIGGER, COLLISION_UNIT+COLLISION_ENVIRONMENT));
-        // TODO  add a lot of ball for emulation explosion
+        .insert(CollisionGroups::new(
+            COLLISION_TRIGGER,
+            COLLISION_UNIT + COLLISION_ENVIRONMENT,
+        ))
+        .insert(SolverGroups::new(
+            COLLISION_TRIGGER,
+            COLLISION_UNIT + COLLISION_ENVIRONMENT,
+        ));
+    // TODO  add a lot of ball for emulation explosion
 
     //    info!("add_explosion finished");
 }
@@ -151,25 +157,23 @@ fn process_explosion_event(
 ) {
     // info!("process_explosion_event start");
 
- //   for (global_transform, entity, mut data) in query.iter_mut() {
-        //     info!("remove_shots tick");
-        for event in events.iter() {
-            if let bevy_rapier3d::prelude::CollisionEvent::Started(e1, e2, f) = event {
-                //                info!("process_explosion_event process");
+    for event in events.iter() {
+        if let bevy_rapier3d::prelude::CollisionEvent::Started(e1, e2, f) = event {
+            //                info!("process_explosion_event process");
 
-                if let Ok((global_transform, _entity, data)) = query.get_mut(*e1) {
-                    commands.entity(*e2).insert(Marker {
-                        force: data.force,
-                        position: global_transform.translation(),
-                    });
-                } else if let Ok((global_transform, _entity, data)) = query.get_mut(*e2) {
-                    commands.entity(*e1).insert(Marker {
-                        force: data.force,
-                        position: global_transform.translation(),
-                    });
-                }
+            if let Ok((global_transform, _entity, data)) = query.get_mut(*e1) {
+                commands.entity(*e2).insert(Marker {
+                    force: data.force,
+                    position: global_transform.translation(),
+                });
+            } else if let Ok((global_transform, _entity, data)) = query.get_mut(*e2) {
+                commands.entity(*e1).insert(Marker {
+                    force: data.force,
+                    position: global_transform.translation(),
+                });
             }
         }
+    }
 
     for (_global_transform, entity, mut data) in query.iter_mut() {
         data.time -= time.delta_seconds();
@@ -191,10 +195,12 @@ fn apply_explosion(
         &mut Marker,
     )>,
 ) {
+    let mut rng = rand::thread_rng();
+
     for (exploded_entity_transform, exploded_entity, collider, collider_mass_properties, marker) in
         query.iter_mut()
     {
-        let explosion_dir = exploded_entity_transform.translation() - marker.position;
+        let explosion_dir = exploded_entity_transform.translation() - marker.position + Vec3::Y*1.;
 
         let inv_mass = match collider_mass_properties {
             ColliderMassProperties::Density(density) => {
@@ -204,13 +210,15 @@ fn apply_explosion(
             ColliderMassProperties::Mass(mass) => 1.0 / mass,
         };
 
-        let force = marker.force / (1. + explosion_dir.length_squared() + inv_mass);
+        let force = marker.force / (0.4 + explosion_dir.length_squared().powf(4.) + inv_mass.powf(0.7));
 
         //        println!("apply_explosion mass: {:?}  length: {:?}   impulse: {:?}", 1.0/inv_mass, explosion_dir.length(), explosion_force);
 
+        let force = rng.gen_range(force*0.8..force*1.2);
+        
         commands.entity(exploded_entity).insert(ExternalImpulse {
             impulse: explosion_dir.normalize() * force,
-            //            torque_impulse: Vec3::X,
+       //     torque_impulse: Vec3::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0)).normalize() * force,
             ..default()
         });
 
@@ -218,12 +226,12 @@ fn apply_explosion(
     }
 }
 
-fn process_in_explosion(
-    mut commands: Commands, 
-    mut input: ResMut<InMesVec<NetData>>,
-) {
+fn process_in_explosion(mut commands: Commands, mut input: ResMut<InMesVec<NetData>>) {
     for (player, explosion) in &input.data {
-        log::info!("Explosion process_in_explosion add_explosion pos:{:?}", explosion.pos);
+        log::info!(
+            "Explosion process_in_explosion add_explosion pos:{:?}",
+            explosion.pos
+        );
         add_explosion(
             &mut commands,
             explosion.pos,

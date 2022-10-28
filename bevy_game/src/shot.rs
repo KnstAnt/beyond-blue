@@ -38,7 +38,7 @@ impl ShotExplosionData {
     pub fn new(live_max_time: f32, explosion_force: f32) -> Self {
         Self {
             timer: Timer::new(Duration::from_secs_f32(live_max_time), false),
-            explosion_radius: explosion_force.powf(0.333333),
+            explosion_radius: 10.*explosion_force.powf(0.5),
             explosion_force,
         }
     }

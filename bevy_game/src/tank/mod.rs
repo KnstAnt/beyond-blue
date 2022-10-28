@@ -60,8 +60,8 @@ impl TankShotData {
             radius: 0.1,
             shot_speed_min: 10.,
             shot_speed_delta: 5.,
-            shot_live_max_time: 30.,
-            explosion_force: 20.,
+            shot_live_max_time: 20.,
+            explosion_force: 2.,
         }
     }
 

@@ -498,7 +498,7 @@ pub fn update_body_moving(
     mut joint_query: Query<&mut MultibodyJoint>,
     entity_query: Query<(Entity, &Transform, ChangeTrackers<WheelData>, &WheelData)>,
 ) {
-    let multipler = 5.;
+    let multipler = 10.;
     let factor = 0.1; //if velosity_left != 0. && velosity_right != 0. { 0.1 } else { 2.0 };
 
     for (entity, _transform, tracker, wheel_data) in entity_query.iter() {

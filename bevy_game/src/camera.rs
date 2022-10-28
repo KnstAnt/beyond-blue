@@ -104,8 +104,8 @@ impl<T: 'static + Send + Sync> Default for CameraPlugin<T> {
 
 fn setup<T: 'static + Send + Sync>(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+//    mut meshes: ResMut<Assets<Mesh>>,
+//    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands
         .spawn_bundle(Camera3dBundle {
@@ -115,8 +115,8 @@ fn setup<T: 'static + Send + Sync>(
         .insert(MyCamera);
 
     commands
-        //        .spawn_bundle((Transform::identity(), GlobalTransform::identity()))
-        .spawn_bundle(PbrBundle {
+        .spawn_bundle((Transform::identity(), GlobalTransform::identity()))
+        /* .spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(UVSphere {
                 radius: 0.1,
                 sectors: 8,
@@ -130,7 +130,7 @@ fn setup<T: 'static + Send + Sync>(
             }),
 
             ..default()
-        })
+        })*/
         .insert(CameraTarget);
 }
 
