@@ -24,6 +24,7 @@ pub struct ShotData {
     pub is_shot: bool,
     pub pos: Vec3,
     pub vel: Vec3,
+    pub radius: f32,
 }
 
 #[derive(Component)]
@@ -49,7 +50,7 @@ impl Plugin for ShotPlugin {
     fn build(&self, app: &mut App) {
         /* *   let before_system_set = SystemSet::on_update(AppState::Playing)
                 .with_system(remove_shots)
-                .with_system(obr_in_shot.run_if(is_play_online))
+                .with_system(process_in_shot.run_if(is_play_online))
                 .with_system(handle_explosion_events)
                 ;
         */
@@ -94,7 +95,7 @@ pub fn create_shot_from_net(
         commands
             .spawn_bundle(PbrBundle {
                 mesh: meshes.add(Mesh::from(UVSphere {
-                    radius: 0.1,
+                    radius: data.radius,
                     sectors: 8,
                     stacks: 8,
                 })),
@@ -112,7 +113,7 @@ pub fn create_shot_from_net(
 //            .insert(ShotExplosionData::new(data.shot_live_max_time, data.explosion_force))
             .insert(PlayerData{handle: player.clone()})
             .insert(bevy_rapier3d::prelude::RigidBody::Dynamic)
-            .insert(bevy_rapier3d::prelude::Collider::ball(0.02))
+            .insert(bevy_rapier3d::prelude::Collider::ball(data.radius))
             //                .insert_bundle(collider)
             .insert(bevy_rapier3d::prelude::ActiveEvents::COLLISION_EVENTS)
             .insert(Restitution::coefficient(0.01))

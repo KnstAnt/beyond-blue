@@ -1,14 +1,16 @@
 use bevy::prelude::Component;
 use bevy::prelude::*;
+use iyes_loopless::prelude::*;
 
-use crate::camera::CameraState;
+use crate::camera::{CameraState, CameraTarget, MyCamera};
 use crate::game::SPEED_EPSILON;
 //use crate::matchbox_net::*;
-use crate::input::*;
 use crate::ballistics::calc_shot_dir;
+use crate::input::*;
 
+use crate::menu::is_play_offline;
+use crate::tank::{NewTank, TankShotData, NewTanksData};
 use crate::AppState;
-use crate::tank::TankShotData;
 
 pub type PlayerHandle = usize;
 
@@ -61,6 +63,7 @@ pub enum Actions {
     CannonUp,
     CannonDown,
     CannonShot,
+    CorrectPos,
 }
 
 unsafe impl Send for Actions {}
@@ -123,12 +126,13 @@ impl Plugin for PlayerPlugin {
                     .label("player_input")
                     .after("keys_input"),
             )
-  /*          .with_system(
-                crate::player::prep_cannon_input
-                    .label("player_input")
-                    .after("keys_input"),
-            )
-  */          .with_system(
+            /*          .with_system(
+                          crate::player::prep_cannon_input
+                              .label("player_input")
+                              .after("keys_input"),
+                      )
+            */
+            .with_system(
                 crate::player::prep_shot_input
                     .label("player_input")
                     .after("keys_input"),
@@ -141,6 +145,13 @@ impl Plugin for PlayerPlugin {
             SystemSet::on_enter(AppState::Playing)
                 .with_system(setup), //  
         )
+        .add_system_set(
+            SystemSet::on_update(AppState::Playing)
+                .with_system(process_correct_pos.run_if(is_play_offline))
+            )
+
+
+
 //        .add_system_set_to_stage(CoreStage::PreUpdate, State::<AppState>::get_driver())
  //       .add_system_set_to_stage(CoreStage::PostUpdate, State::<AppState>::get_driver())
         .add_system_set_to_stage(CoreStage::PreUpdate, before_system_set)
@@ -164,6 +175,9 @@ fn setup(mut commands: Commands) {
     game_control.add_key_action(Actions::CannonUp, KeyCode::Up);
     game_control.add_key_action(Actions::CannonDown, KeyCode::Down);
     game_control.add_key_action(Actions::CannonShot, KeyCode::Space);
+    game_control.add_mouse_action(Actions::CannonShot, MouseButton::Left);
+
+    game_control.add_key_action(Actions::CorrectPos, KeyCode::Delete);
 
     commands.insert_resource(game_control);
     println!("Player setup complete");
@@ -220,9 +234,8 @@ pub fn prep_wheel_input(
     }
 }
 
-
 pub fn prep_turret_input(
-//    time: Res<Time>,
+    //    time: Res<Time>,
     local_handles: Res<LocalHandles>,
     mut turret_query: Query<(&GlobalTransform, &mut ControlTurret, &PlayerData)>,
     mut cannon_query: Query<(&GlobalTransform, &mut ControlCannon, &PlayerData)>,
@@ -254,7 +267,6 @@ pub fn prep_turret_input(
     assert!(*local_handles.handles.first().unwrap() == player.handle);
     let mut cannon_rotation = 0.;
 
-
     if let Some(key_state) = game_control.get_key_state(Actions::TurretLeft) {
         turret_rotation += match key_state {
             KeyState::JustPressed | KeyState::Pressed => 1.,
@@ -284,27 +296,29 @@ pub fn prep_turret_input(
     }
 
     if cannon_rotation == 0. && turret_rotation == 0. {
-        if let Some(target) = camera_state.ray_hit_position {
-
+        if let Some(target) = camera_state.mouse_hit_position {
             let (global_transform, shot_data, shot_control) = fire_pos_query.single_mut();
 
             let pos = global_transform.translation();
 
             let shot_dir = calc_shot_dir(
-                pos, 
-                target,   
-                shot_data.shot_speed(shot_control.time), 
-                shot_data.radius,                             
+                pos,
+                target,
+                shot_data.shot_speed(shot_control.time),
+                shot_data.radius,
                 9.8,
             );
 
             let (_scale, rotation, _pos) = turret_global_transform.to_scale_rotation_translation();
-            let local_dir = Transform::from_rotation(rotation).compute_matrix().inverse().transform_point3(shot_dir);
+            let local_dir = Transform::from_rotation(rotation)
+                .compute_matrix()
+                .inverse()
+                .transform_point3(shot_dir);
             let dot_forward = local_dir.dot(Vec3::NEG_Z);
             let dot_left = local_dir.dot(Vec3::NEG_X);
 
             turret_rotation = if dot_forward > 0. {
-                (dot_left*1.4).min(1.)
+                (dot_left * 1.4).min(1.)
             } else {
                 if dot_left > 0. {
                     1.
@@ -318,10 +332,13 @@ pub fn prep_turret_input(
             }
 
             let (_scale, rotation, _pos) = cannon_global_transform.to_scale_rotation_translation();
-            let local_dir = Transform::from_rotation(rotation).compute_matrix().inverse().transform_point3(shot_dir);
+            let local_dir = Transform::from_rotation(rotation)
+                .compute_matrix()
+                .inverse()
+                .transform_point3(shot_dir);
 
             cannon_rotation = if dot_forward > 0. {
-                (local_dir.dot(Vec3::Y)*1.4).min(1.)
+                (local_dir.dot(Vec3::Y) * 1.4).min(1.)
             } else {
                 0.
             };
@@ -329,7 +346,7 @@ pub fn prep_turret_input(
             if cannon_rotation.abs() < SPEED_EPSILON {
                 cannon_rotation = 0.;
             }
-        }        
+        }
     }
 
     if turret_control.speed != turret_rotation {
@@ -339,7 +356,6 @@ pub fn prep_turret_input(
     if cannon_control.speed != cannon_rotation {
         cannon_control.speed = cannon_rotation;
     }
-
 }
 /*
 pub fn prep_turret_input(
@@ -484,3 +500,60 @@ pub fn prep_shot_input(
     }
 }
 
+pub fn process_correct_pos(
+    //    time: Res<Time>,
+    local_handles: Res<LocalHandles>,
+    mut query: Query<(&mut Transform, &PlayerData), (With<ControlMove>, Without<CameraTarget>)>,
+    game_control: Res<GameControl<Actions>>,
+    camera_state: ResMut<CameraState>,
+    mut camera_target_query: Query<&mut Transform, (With<CameraTarget>, Without<ControlMove>)>,
+    mut spawn_tank_data: ResMut<NewTanksData>,
+) {
+    if local_handles.handles.is_empty() {
+        return;
+    }
+
+ /*    if let Some(center_screen_hit_position) = camera_state.center_screen_hit_position {
+        log::info!("center: {}", center_screen_hit_position);
+    }
+*/
+    if let Some(key_state) = game_control.get_key_state(Actions::CorrectPos) {
+        if *key_state != KeyState::JustPressed {
+            return;
+        }
+
+        if let Ok(mut transform) = camera_target_query.get_single_mut() {
+            if let Some(center_screen_hit_position) = camera_state.center_screen_hit_position {
+                transform.translation = center_screen_hit_position;
+            }
+        }
+
+        let start_pos = if let Some(target) = camera_state.mouse_hit_position {
+            target
+        } else {
+            log::info!("process_correct_pos camera_state error!");
+            return;
+        };        
+
+        if query.is_empty() {
+            let start_angle = camera_state.pitch; //rng.gen_range(-std::f32::consts::PI..std::f32::consts::PI);
+    
+            spawn_tank_data.vector.push(NewTank {
+                handle: *local_handles.handles.first().unwrap(),
+                pos: Vec2::new(start_pos.x, start_pos.z),
+                angle: start_angle,
+            });
+    
+            return;
+        }
+
+        let (mut position, player) = query.single_mut();
+        assert!(*local_handles.handles.first().unwrap() == player.handle);
+
+        log::info!("process_correct_pos pressed");
+
+        position.translation.x = start_pos.x;
+        position.translation.y = start_pos.y + 1.;
+        position.translation.z = start_pos.z;
+    }
+}

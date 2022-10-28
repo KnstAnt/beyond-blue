@@ -10,13 +10,6 @@ use crate::{AppState, player::{LocalHandles}, game::{set_player_control, set_net
 use crate::loading::ModelAssets;
 use crate::player:: PlayerData;
 
-
-pub const COLLISION_TERRAIN: u32 = 0b0001;
-pub const COLLISION_UNIT: u32 = 0b0010;
-pub const COLLISION_MISSILE: u32 = 0b0100;
-pub const COLLISION_TRIGGER: u32 = 0b1000;
-
-
 mod body;
 mod body_physics;
 mod turret;
@@ -64,7 +57,7 @@ pub struct TankShotData {
 impl TankShotData {
     fn init() -> Self {
         Self {
-            radius: 0.02,
+            radius: 0.1,
             shot_speed_min: 10.,
             shot_speed_delta: 5.,
             shot_live_max_time: 30.,
@@ -176,7 +169,7 @@ impl Plugin for TankPlugin {
         app.init_resource::<NewTanksData>()
             .add_system_set(SystemSet::on_enter(AppState::Loading).with_system(setup))
             .add_system_set_to_stage(CoreStage::PreUpdate, before_system_set)
-            .add_system(obr_spawn_tanks.run_if(is_create_tanks))
+            .add_system(process_spawn_tanks.run_if(is_create_tanks))
             .add_system_set(ConditionSet::new().run_if(is_create_tanks).into());
     }
 }
@@ -195,7 +188,7 @@ fn setup(
     //   let _scenes: Vec<HandleUntyped> = asset_server.load_folder("Tank_1/PARTS").unwrap();
 }
 
-pub fn obr_spawn_tanks(
+pub fn process_spawn_tanks(
     local_handles: Res<LocalHandles>,
     mut data: ResMut<NewTanksData>,
     query: Query<(&MesState<TankBodyData>, &PlayerData)>,
@@ -292,7 +285,7 @@ fn create_debug_tank(
 
     let cannon = commands
         .spawn_bundle(SpatialBundle {
-            transform: Transform::from_translation(Vec3::new(0., 0.50, -0.45)),
+            transform: Transform::from_translation(Vec3::new(0., 0.60, -0.45)),
             ..Default::default()
         })
         .id();
@@ -405,7 +398,7 @@ fn create_tank(
 
     let cannon = commands
         .spawn_bundle(SpatialBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 0.50, -0.45)),
+            transform: Transform::from_translation(Vec3::new(0.0, 0.60, -0.45)),
             ..Default::default()
         })
         .with_children(|parent| {

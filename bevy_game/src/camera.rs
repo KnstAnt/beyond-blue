@@ -1,4 +1,5 @@
 use crate::AppState;
+use crate::game::{COLLISION_TERRAIN, EXCLUDE_TERRAIN, COLLISION_ALL, COLLISION_TRIGGER, COLLISION_MISSILE, COLLISION_UNIT, COLLISION_WHEEL, COLLISION_ENVIRONMENT};
 use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::prelude::shape::UVSphere;
 use bevy::render::primitives::Sphere;
@@ -15,6 +16,7 @@ use std::{marker::PhantomData, ops::Mul};
 pub struct CameraTarget;
 
 pub struct CameraPlugin<T: 'static + Send + Sync>(pub PhantomData<T>);
+
 
 #[derive(Component, Debug)]
 pub struct MyCamera;
@@ -33,8 +35,10 @@ pub struct CameraState {
     pub cursor_prev: Vec2,
     pub cursor_latest: Vec2,
     pub global_position: Vec3,
-    pub ray: Vec3,
-    pub ray_hit_position: Option<Vec3>,
+    pub mouse_ray: Vec3,
+    pub mouse_hit_position: Option<Vec3>,    
+    pub center_screen_ray: Vec3,
+    pub center_screen_hit_position: Option<Vec3>,    
     mleft_press_position: Option<Vec3>,
 }
 
@@ -53,8 +57,11 @@ impl Default for CameraState {
             cursor_prev: Vec2::new(101., 101.),
             cursor_latest: Vec2::new(101., 101.),
             global_position: Vec3::new(0., 0., 0.),
-            ray: Vec3::new(0., -1., 0.),
-            ray_hit_position: None,
+            mouse_ray: Vec3::new(0., -1., 0.),
+            mouse_hit_position: None,
+            center_screen_ray: Vec3::new(0., -1., 0.),
+            center_screen_hit_position: None, 
+
             mleft_press_position: None,
         }
     }
@@ -232,12 +239,21 @@ fn update_ray_with_cursor(
         */
         camera_state.global_position = camera_transform.translation();
 
-        camera_state.ray = screen_to_world_dir(
+        camera_state.mouse_ray = screen_to_world_dir(
             &camera_state.cursor_latest,
             &Vec2::from([window.width() as f32, window.height() as f32]),
             camera,
             camera_transform,
         );
+
+        camera_state.center_screen_ray = screen_to_world_dir(
+            &Vec2::from([window.width()/2. as f32, window.height()/2. as f32]),
+            &Vec2::from([window.width() as f32, window.height() as f32]),
+            camera,
+            camera_transform,
+        );
+
+
     /*
         let world_coord = camera_transform.translation + dir * 30.; // distance from the camera to put the world coord.
 
@@ -301,6 +317,9 @@ fn move_camera_target_by_mouse(
     mut target_query: Query<&mut Transform, (With<CameraTarget>, Without<MyCamera>)>,
     mut camera_query: Query<(&MyCamera, &mut Transform), Without<CameraTarget>>,
 ) {
+
+//    log::info!("move_camera_target_by_mouse start");
+
     /*
         lines.line_colored(
             Vec3::new(ray.x, 100.0, ray.z),
@@ -309,51 +328,60 @@ fn move_camera_target_by_mouse(
             Color::BLACK,
         );
     */
+
+    let filter = bevy_rapier3d::prelude::QueryFilter::from(
+        InteractionGroups::new(COLLISION_MISSILE, COLLISION_TERRAIN)
+    );
+
+
     // Then cast the ray.
     let result = rapier_context.cast_ray(
         camera_state.global_position,
-        camera_state.ray,
+        camera_state.mouse_ray,
         f32::MAX,
         true,
-        bevy_rapier3d::prelude::QueryFilter {
-            flags: bevy_rapier3d::rapier::prelude::QueryFilterFlags::EXCLUDE_SENSORS,
-            groups: Some(InteractionGroups::new(0b0001, 0b0001)),
+        filter,/* {
+            flags: 0,//bevy_rapier3d::rapier::prelude::QueryFilterFlags::EXCLUDE_SENSORS,
+            groups: Some(InteractionGroups::new(COLLISION_TERRAIN, COLLISION_TERRAIN)),
             exclude_collider: None,
             exclude_rigid_body: None,
             predicate: None,
-        }
+        }*/
     );
 
-    //  let result = physics_world.ray_cast(camera_state.global_position, ray, true);
-
-    /*       if let Some((entity, _toi)) = hit {
-                // Color in red the entity we just hit.
-                // But don't color it if the rigid-body is not dynamic.
-                if let Ok(rb) = bodies.get(entity) {
-                    if *rb == RigidBody::Dynamic {
-                        let color = Color::BLUE; // Color in blue.
-                        commands.entity(entity).insert(ColliderDebugColor(color));
-                    }
-                }
-            }
-    */
-    if let Some((_entity, toi)) = result {
-        camera_state.ray_hit_position =
-            Some(camera_state.global_position + camera_state.ray * toi);
-
-    /*        if mouse_event.just_pressed(MouseButton::Right) {
-               if let Ok(mut transform) = target_query.get_single_mut() {
-                   transform.translation = camera_state.ray_hit_position.unwrap();
-               }
-           }
-    */
+    camera_state.mouse_hit_position = if let Some((_entity, toi)) = result {        
+ //       log::info!("move_camera_target_by_mouse mouse_hit_position ok");
+        Some(camera_state.global_position + camera_state.mouse_ray * toi)
     } else {
-        camera_state.ray_hit_position = None;
-    }
+//        log::info!("move_camera_target_by_mouse mouse_hit_position error");
+        None
+    };
+
+ //   flags: bevy_rapier3d::rapier::prelude::QueryFilterFlags::EXCLUDE_SENSORS,
+ //   groups: Some(InteractionGroups::new(COLLISION_TERRAIN, COLLISION_TERRAIN)),
+
+ //           flags: bevy_rapier3d::rapier::prelude::QueryFilterFlags::ONLY_FIXED,
+  //          groups: Some(InteractionGroups::new(COLLISION_TERRAIN, EXCLUDE_TERRAIN)),
+
+    let result = rapier_context.cast_ray(
+        camera_state.global_position,
+        camera_state.center_screen_ray,
+        f32::MAX,
+        true,
+        filter,
+    );
+
+    camera_state.center_screen_hit_position = if let Some((_entity, toi)) = result {
+ //       log::info!("move_camera_target_by_mouse center_screen_hit_position ok");
+        Some(camera_state.global_position + camera_state.center_screen_ray * toi)
+    } else {
+//        log::info!("move_camera_target_by_mouse center_screen_hit_position error");
+        None
+    };
 
     // drag camera pos with mouse
     if let Some(mleft_press_position) = camera_state.mleft_press_position {
-        if let Some(ray_hit_position) = camera_state.ray_hit_position {
+        if let Some(ray_hit_position) = camera_state.mouse_hit_position {
             if let Ok(mut target_transform) = target_query.get_single_mut() {
                 if ray_hit_position.abs_diff_eq(mleft_press_position, 0.1) {
                     return;
@@ -372,16 +400,10 @@ fn move_camera_target_by_mouse(
                     new_dir,
                     f32::MAX,
                     true,
-                    bevy_rapier3d::prelude::QueryFilter {
-                        flags: bevy_rapier3d::rapier::prelude::QueryFilterFlags::EXCLUDE_SENSORS,
-                        groups: Some(InteractionGroups::new(0b0001, 0b0001)),
-                        exclude_collider: None,
-                        exclude_rigid_body: None,
-                        predicate: None,
-                    }
+                    filter,
                 );
 
-                if let Some((entity, _toi)) = new_result {
+                if let Some((_entity, _toi)) = new_result {
                     if let Ok((_camera, mut cam_transform)) = camera_query.get_single_mut() {
                         let delta_pos = camera_state.global_position + new_dir * _toi
                             - target_transform.translation;
@@ -399,7 +421,7 @@ fn obr_mouse(
     mouse_event: Res<Input<MouseButton>>
 ) {
     if mouse_event.just_pressed(MouseButton::Right) {
-        camera_state.mleft_press_position = camera_state.ray_hit_position.clone();
+        camera_state.mleft_press_position = camera_state.mouse_hit_position.clone();
     } else if mouse_event.just_released(MouseButton::Right) {
         camera_state.mleft_press_position = None;
     }

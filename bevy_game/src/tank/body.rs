@@ -54,24 +54,24 @@ pub fn update_body_position_from_net(
 
         let length_squared = delta_pos.length_squared();
         if length_squared > POS_EPSILON_QRT {                      
-            force.force = delta_pos * ((1. + length_squared).powf(3.0) - 1.) * 100.;
+            force.force = delta_pos * ((1. + length_squared).powf(2.0) - 1.) * 10.;
         }
 
         let delta_angle = delta_dir(data.angle, rotation.to_euler(EulerRot::YXZ).0);
         if delta_angle.abs() > ANGLE_EPSILON {        
-            let torque = ((1. + delta_angle).powf(3.0) - 1.) * 100.;
+            let torque = ((1. + delta_angle).powf(2.0) - 1.) * 10.;
             force.torque = rotation.mul_vec3(Vec3::Y * torque);
         }
 
 //        log::info!("update_body_position delta_pos: {}; tmp_impulse: {}; current_dir: {}; from_net.dir: {}; torque: {}", delta_pos, tmp_impulse, current_body_dir, data.angle, torque);
 
             let wheel_data_movement = if data.movement.length_squared() > 0.1 {
-                sleeping.linear_threshold = -1.;
-                sleeping.angular_threshold = -1.;
+                sleeping.linear_threshold = 2.;
+                sleeping.angular_threshold = 10.;
                 sleeping.sleeping = false;
                 Some(data.movement.clone())
             } else {
-                sleeping.linear_threshold = 1.;
+                sleeping.linear_threshold = 2.;
                 sleeping.angular_threshold = 10.;
                 sleeping.sleeping = true;
                 //          sleeping.default();

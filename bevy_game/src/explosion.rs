@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::AppState;
 
-use crate::game::InMesVec;
+use crate::game::{InMesVec, COLLISION_UNIT, COLLISION_TRIGGER, COLLISION_ENVIRONMENT};
 use crate::menu::is_play_online;
 use crate::player::PlayerData;
 
@@ -23,15 +23,14 @@ const LIVE_TIME: f32 = 1.;
 struct Data {
     time: f32,
     force: f32,
-    radius: f32,
     flag: bool,
 }
 
-impl Data {    pub fn new(force: f32, radius: f32) -> Self {
+impl Data {
+    pub fn new(force: f32) -> Self {
         Self {
             time: LIVE_TIME,
             force,
-            radius,
             flag: true,
         }
     }
@@ -108,7 +107,7 @@ pub fn add_explosion(
     //    mut meshes: ResMut<Assets<Mesh>>,
     //    mut materials: ResMut<Assets<StandardMaterial>>,
     pos: Vec3,
-    forse: f32,
+    force: f32,
     radius: f32,
     player: usize,
 ) {
@@ -132,13 +131,13 @@ pub fn add_explosion(
 
             ..default()
         })
-        .insert(Data::new(forse, radius))
+        .insert(Data::new(force))
         .insert(PlayerData { handle: player })
         .insert(bevy_rapier3d::prelude::Collider::ball(radius))
         .insert(bevy_rapier3d::geometry::Sensor)
         .insert(bevy_rapier3d::prelude::ActiveEvents::COLLISION_EVENTS)
-        .insert(CollisionGroups::new(0b1000, 0b0011))
-        .insert(SolverGroups::new(0b1000, 0b0011));
+        .insert(CollisionGroups::new(COLLISION_TRIGGER, COLLISION_UNIT+COLLISION_ENVIRONMENT))
+        .insert(SolverGroups::new(COLLISION_TRIGGER, COLLISION_UNIT+COLLISION_ENVIRONMENT));
         // TODO  add a lot of ball for emulation explosion
 
     //    info!("add_explosion finished");
@@ -152,18 +151,18 @@ fn process_explosion_event(
 ) {
     // info!("process_explosion_event start");
 
-    for (global_transform, entity, mut data) in query.iter_mut() {
+ //   for (global_transform, entity, mut data) in query.iter_mut() {
         //     info!("remove_shots tick");
         for event in events.iter() {
             if let bevy_rapier3d::prelude::CollisionEvent::Started(e1, e2, f) = event {
                 //                info!("process_explosion_event process");
 
-                if e1 == &entity {
+                if let Ok((global_transform, _entity, data)) = query.get_mut(*e1) {
                     commands.entity(*e2).insert(Marker {
                         force: data.force,
                         position: global_transform.translation(),
                     });
-                } else if e2 == &entity {
+                } else if let Ok((global_transform, _entity, data)) = query.get_mut(*e2) {
                     commands.entity(*e1).insert(Marker {
                         force: data.force,
                         position: global_transform.translation(),
@@ -172,6 +171,7 @@ fn process_explosion_event(
             }
         }
 
+    for (_global_transform, entity, mut data) in query.iter_mut() {
         data.time -= time.delta_seconds();
         // if it finished, despawn the bomb
         if data.time <= 0. {
@@ -223,7 +223,7 @@ fn process_in_explosion(
     mut input: ResMut<InMesVec<NetData>>,
 ) {
     for (player, explosion) in &input.data {
-        log::info!("Explosion obr_in_explosion add_explosion pos:{:?}", explosion.pos);
+        log::info!("Explosion process_in_explosion add_explosion pos:{:?}", explosion.pos);
         add_explosion(
             &mut commands,
             explosion.pos,

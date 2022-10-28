@@ -2,7 +2,7 @@ use std::collections::LinkedList;
 use bevy::prelude::*;
 use bevy_rapier3d::{prelude::*, rapier::prelude::JointAxis};
 
-use super::{COLLISION_UNIT, COLLISION_TERRAIN, COLLISION_MISSILE, COLLISION_TRIGGER};
+use crate::game::{COLLISION_UNIT, COLLISION_TERRAIN, COLLISION_WHEEL, COLLISION_ENVIRONMENT, COLLISION_ALL};
 
 //use crate::input::MyInput;
 
@@ -100,12 +100,12 @@ pub fn create_body(
         body_angle,
         vehicle_cfg.body_half_size,
         &mut commands,
-        CollisionGroups::new(COLLISION_UNIT, COLLISION_TERRAIN+COLLISION_UNIT+COLLISION_MISSILE+COLLISION_TRIGGER),
-        SolverGroups::new(COLLISION_UNIT, COLLISION_TERRAIN+COLLISION_UNIT+COLLISION_MISSILE+COLLISION_TRIGGER),
+        CollisionGroups::new(COLLISION_UNIT, COLLISION_ALL),
+        SolverGroups::new(COLLISION_UNIT, COLLISION_ALL),
     );
 
-    let wheel_collision_group = CollisionGroups::new(COLLISION_UNIT, COLLISION_TERRAIN);
-    let wheel_solver_group = SolverGroups::new(COLLISION_UNIT, COLLISION_TERRAIN);
+    let wheel_collision_group = CollisionGroups::new(COLLISION_WHEEL, COLLISION_TERRAIN+COLLISION_ENVIRONMENT);
+    let wheel_solver_group = SolverGroups::new(COLLISION_WHEEL, COLLISION_TERRAIN+COLLISION_ENVIRONMENT);
     {
         let offset = Vec3::new(
             vehicle_cfg.offset_x,
@@ -383,6 +383,8 @@ fn spawn_axle(
         .insert(NameComponent {
             name: format!("{} Axle", prefix),
         })
+        .insert(CollisionGroups::new(0, 0))
+        .insert(SolverGroups::new(0, 0))
         //		.insert(Tag::Axle)
 //        .insert(collision_groups)
 //        .insert(solver_groups)
@@ -449,7 +451,7 @@ fn spawn_axle_joint(
 ) -> Entity {
     let target_vel = 0.0;
     let factor = 1.;
-    let max_force = 5.;
+    let max_force = 10.;
 
     let axle_joint_builder = PrismaticJointBuilder::new(Vec3::Y)
         .local_anchor1(body_anchor)
@@ -496,7 +498,7 @@ pub fn update_body_moving(
     mut joint_query: Query<&mut MultibodyJoint>,
     entity_query: Query<(Entity, &Transform, ChangeTrackers<WheelData>, &WheelData)>,
 ) {
-    let multipler = 10.;
+    let multipler = 5.;
     let factor = 0.1; //if velosity_left != 0. && velosity_right != 0. { 0.1 } else { 2.0 };
 
     for (entity, _transform, tracker, wheel_data) in entity_query.iter() {

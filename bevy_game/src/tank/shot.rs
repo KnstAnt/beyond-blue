@@ -4,7 +4,7 @@ use bevy_prototype_debug_lines::DebugLines;
 use bevy_rapier3d::prelude::*;
 
 use super::TankShotData;
-use crate::game::{GameMessage, OutGameMessages};
+use crate::game::{GameMessage, OutGameMessages, COLLISION_UNIT, COLLISION_TERRAIN, COLLISION_MISSILE, COLLISION_ENVIRONMENT};
 use crate::player::{ControlFire, LocalHandles, PlayerData};
 use crate::shot::{ShotData, ShotExplosionData};
 //use crate::shot::Data;
@@ -58,7 +58,7 @@ pub fn create_player_cannon_shot(
     let shot_pos = global_transform.translation();
     let shot_vel = global_transform.forward() * shot_speed;
 
-    let out_data = ShotData{is_shot: true, pos: shot_pos, vel: shot_vel};
+    let out_data = ShotData{is_shot: true, pos: shot_pos, vel: shot_vel, radius: data.radius};
 
     output.data.push(GameMessage::from(out_data));
 
@@ -94,8 +94,8 @@ pub fn create_player_cannon_shot(
                 linvel: shot_vel,
                 angvel: Vec3::ZERO,
             })
-            .insert(CollisionGroups::new(0b0100, 0b0011))
-            .insert(SolverGroups::new(0b0100, 0b0011))
+            .insert(CollisionGroups::new(COLLISION_MISSILE, COLLISION_TERRAIN+COLLISION_UNIT+COLLISION_ENVIRONMENT))
+            .insert(SolverGroups::new(COLLISION_MISSILE, COLLISION_TERRAIN+COLLISION_UNIT+COLLISION_ENVIRONMENT))
             .insert(bevy_rapier3d::prelude::ActiveHooks::FILTER_CONTACT_PAIRS)
 //          .insert(CustomFilterTag::GroupShot)
             ;

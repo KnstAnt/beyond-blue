@@ -5,6 +5,8 @@ use bevy_rapier3d::prelude::*;
 use iyes_loopless::prelude::ConditionSet;
 use iyes_loopless::prelude::IntoConditionalSystem;
 
+use crate::game::COLLISION_MISSILE;
+use crate::game::{COLLISION_UNIT, COLLISION_TERRAIN, COLLISION_WHEEL, COLLISION_ENVIRONMENT, COLLISION_ALL};
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum TerrainState {
@@ -99,11 +101,13 @@ fn setup_terrain_assets(
     mut _meshes: ResMut<Assets<Mesh>>,
     mut _materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    if false {
+    if true {
         if let Some(scene_handle) = &terrain_scene.scene_handle {
             println!("terrain setup_terrain_assets");
 
-                if add_terrain_assets(commands, scene_handle, gltfs, gltf_nodes, gltf_meshes/*, meshes, materials*/) {
+   //             let pos = Vec3::new(-3., 0., 4.);
+                let scale = Vec3::new(0.03, 0.01, 0.03);
+                if add_terrain_assets(commands, scene_handle, gltfs, gltf_nodes, gltf_meshes, /*meshes, materials, pos, */scale) {
                 terrain_scene.loading_state = TerrainState::CreatePhysics;
                 println!("terrain setup_terrain_assets complete");
             }
@@ -122,6 +126,8 @@ fn add_terrain_assets(
     gltf_meshes: Res<Assets<GltfMesh>>,
  //   mut meshes: ResMut<Assets<Mesh>>,
  //   mut materials: ResMut<Assets<StandardMaterial>>,
+//    pos: Vec3, 
+    scale: Vec3,
 ) -> bool {
     if let Some(gltf) = gltfs.get(gltf_handle) {
         println!("terrain add_terrain_assets gltfs.get(&model_assets.terrain) ok");
@@ -130,11 +136,16 @@ fn add_terrain_assets(
             if let Some(first_node) = gltf_nodes.get(first_node_handle) {
                 println!("terrain add_terrain_assets first_node ok");
 
-                if let Some(entity) = create_gltf_entity(&mut commands, &gltf_meshes, first_node) {
+                if let Some(entity) = create_gltf_entity(&mut commands, &gltf_meshes, first_node) {    
 
-                    //   .with_translation(Vec3::new(300., 0., -400.))
+                    let root = commands
+                        .spawn_bundle(SpatialBundle {
+                            transform: Transform::from_scale(scale),
+                            ..Default::default()
+                        }).id();
 
                     commands.entity(entity).insert(TerrainRootEntity);
+                    commands.entity(root).add_child(entity);
         
                     if !first_node.children.is_empty() {
                         create_gltf_entities(&mut commands, entity, &gltf_meshes, &first_node.children);
@@ -239,8 +250,8 @@ fn add_test_plane(
         .insert(Transform::from_xyz(0.0, -1., 0.0))
         .insert(bevy_rapier3d::prelude::RigidBody::Fixed)
 //        .insert(CustomFilterTag::GroupTerrain)
-        .insert(CollisionGroups::new(0b0001, 0b0111))
-        .insert(SolverGroups::new(0b0001, 0b0111))
+        .insert(CollisionGroups::new(COLLISION_TERRAIN, COLLISION_UNIT+COLLISION_WHEEL+COLLISION_ENVIRONMENT+COLLISION_MISSILE))
+        .insert(SolverGroups::new(COLLISION_TERRAIN, COLLISION_UNIT+COLLISION_WHEEL+COLLISION_ENVIRONMENT))
         .insert(TerrainRootEntity)
         .insert(Friction::coefficient(0.3))
         ;
@@ -280,8 +291,8 @@ fn setup_terrain_physics(
                     .insert(collider)
                     .insert(bevy_rapier3d::prelude::RigidBody::Fixed)
                     .insert(Friction::coefficient(0.3))
-                    .insert(CollisionGroups::new(0b0001, 0b0111))
-                    .insert(SolverGroups::new(0b0001, 0b0111))
+                    .insert(CollisionGroups::new(COLLISION_TERRAIN, COLLISION_UNIT+COLLISION_WHEEL+COLLISION_ENVIRONMENT+COLLISION_MISSILE))
+                    .insert(SolverGroups::new(COLLISION_TERRAIN, COLLISION_UNIT+COLLISION_WHEEL+COLLISION_ENVIRONMENT))
  //                   .insert(CustomFilterTag::GroupTerrain)
                     ;
 
@@ -296,18 +307,16 @@ fn setup_terrain_physics(
 pub fn get_pos_on_ground(pos: Vec3, rapier_context: &RapierContext) -> Option<Vec3> {
  //   println!("terrain get_pos_on_ground");
 
+    let filter = bevy_rapier3d::prelude::QueryFilter::from(
+        InteractionGroups::new(COLLISION_MISSILE, COLLISION_TERRAIN)
+    );
+
     let result = rapier_context.cast_ray(
         Vec3::new(pos.x, 2000., pos.z),
         Vec3::new(0., -1., 0.),
         f32::MAX,
         true,
-        QueryFilter {
-            flags: bevy_rapier3d::rapier::prelude::QueryFilterFlags::EXCLUDE_SENSORS,
-            groups: Some(InteractionGroups::new(0b0001, 0b0001)),
-            exclude_collider: None,
-            exclude_rigid_body: None,
-            predicate: None,
-        }
+        filter,
     );
 
     /*    let result = physics_world.ray_cast(

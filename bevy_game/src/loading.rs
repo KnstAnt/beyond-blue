@@ -44,8 +44,8 @@ pub struct TextureAssets {
 
 #[derive(AssetCollection)]
 pub struct ModelAssets {
-#[asset(path = "map/ground_4/scene.gltf")]   // nice! smoll
-//    #[asset(path = "map/terrain/scene.gltf")]
+//#[asset(path = "map/ground_4/scene.gltf")]   // nice! smoll
+    #[asset(path = "map/terrain/scene.gltf")]
 //    #[asset(path = "map/island/scene.gltf")]
     pub terrain: Handle<Gltf>,
 //    #[asset(path = "map/mountain.glb#Scene0")]

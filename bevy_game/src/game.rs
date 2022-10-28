@@ -53,6 +53,16 @@ pub struct GameClose;
 
 pub struct TempForCamera;
 
+
+pub const COLLISION_TERRAIN: u32 = 0b000001;
+pub const COLLISION_UNIT: u32 = 0b000010;
+pub const COLLISION_WHEEL: u32 = 0b00100;
+pub const COLLISION_ENVIRONMENT: u32 = 0b001000;
+pub const COLLISION_MISSILE: u32 = 0b010000;
+pub const COLLISION_TRIGGER: u32 = 0b100000;
+pub const COLLISION_ALL: u32 = 0b111111;
+pub const EXCLUDE_TERRAIN: u32 = 0b111110;
+
 pub const MAX_OUT_DELTA_TIME: f32 = 3.;
 pub const MIN_OUT_DELTA_TIME: f32 = 0.5;
 pub const OUT_ANGLE_EPSILON: f32 = 1.0*std::f32::consts::PI/180.;
@@ -171,7 +181,7 @@ impl Plugin for GamePlugin {
         app.add_plugin(DebugLinesPlugin::with_depth_test(true))
             .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
             //            .add_plugin(RapierPhysicsPlugin::<&CustomFilterTag>::default())
-            .add_plugin(RapierDebugRenderPlugin::default())
+//            .add_plugin(RapierDebugRenderPlugin::default())
             .add_plugin(CameraPlugin::<TempForCamera>::default())
             .add_plugin(TerrainPlugin)
             .add_plugin(PlayerPlugin)
@@ -202,21 +212,21 @@ impl Plugin for GamePlugin {
             .add_system_set(
                 SystemSet::on_update(AppState::Playing)
                     .with_system(
-                        obr_in_raw_message
-                        .before(obr_in_mes_map::<TankBodyData>),
+                        process_in_raw_message
+                        .before(process_in_mes_map::<TankBodyData>),
                     )
                     .with_system(
- //                       obr_in_mes_map::<TankBodyData>
-                        obr_in_mes_tank_body
-                        .after(obr_in_raw_message),
+ //                       process_in_mes_map::<TankBodyData>
+                        process_in_mes_tank_body
+                        .after(process_in_raw_message),
                     )
                     .with_system(
-                        obr_in_mes_map::<TurretRotation>
-                        .after(obr_in_raw_message),
+                        process_in_mes_map::<TurretRotation>
+                        .after(process_in_raw_message),
                     )
                     .with_system(
-                        obr_in_mes_map::<CannonRotation>
-                        .after(obr_in_raw_message),
+                        process_in_mes_map::<CannonRotation>
+                        .after(process_in_raw_message),
                     )
             )
             .add_system_set(
@@ -305,6 +315,8 @@ fn setup(mut commands: Commands, model_assets: Res<ModelAssets>) {
 
 fn on_terrain_complete(mut playing_scene: ResMut<PlayingScene>) {
     println!("Game on_terrain_complete");
+
+
     playing_scene.playing_state = PlayingState::CreateDynamic;
 }
 
@@ -379,6 +391,7 @@ fn setup_dynamic(
            }
     */
     println!("Game setup_dynamic complete");
+    
     playing_scene.playing_state = PlayingState::Complete;
     state.replace(AppState::Playing).unwrap();
     //   commands.insert_resource(NextState(SetupState::SetupComplete));
@@ -442,8 +455,8 @@ pub fn start_game(
 
   //  let start_pos = Vec3::ZERO;
   //  let start_angle = 0.;
-
-    let start_pos = Vec3::new(rng.gen_range(-10.0..10.0), 0., rng.gen_range(-10.0..10.0));
+  //.with_translation(Vec3::new(300., 0., -400.))
+    let start_pos = Vec3::new(15., 0., -15.);//Vec3::new(rng.gen_range(-10.0..10.0), 0., rng.gen_range(-10.0..10.0));
     let start_angle = rng.gen_range(-std::f32::consts::PI..std::f32::consts::PI);
 
     if let Some(pos) = get_pos_on_ground(start_pos, &rapier_context) {
@@ -453,9 +466,9 @@ pub fn start_game(
             angle: start_angle,
         });
 
-        /*
-                let start_pos_x = 0.0;
-                let start_pos_z = 0.0;
+        
+                let start_pos_x = start_pos.x;
+                let start_pos_z = start_pos.z;
 
                 let mut rng = rand::thread_rng();
             //    let y: f64 = rng.gen(); // generates a float between 0 and 1
@@ -484,22 +497,27 @@ pub fn start_game(
                             })
                             .insert(bevy_rapier3d::prelude::RigidBody::Dynamic)
                             .insert(bevy_rapier3d::prelude::Collider::cuboid(half_size, half_size, half_size))
-                            .insert(CollisionGroups::new(0b0010, 0b1111))
-                            .insert(SolverGroups::new(0b0010, 0b1111))
+                            .insert(CollisionGroups::new(COLLISION_ENVIRONMENT, COLLISION_ALL))
+                            .insert(SolverGroups::new(COLLISION_ENVIRONMENT, COLLISION_ALL))
                             .insert(Restitution::coefficient(0.7))
-                            .insert(ColliderMassProperties::Density(1.0));
+                            .insert(ColliderMassProperties::Density(1.0))
+                            .insert(Damping {
+                                linear_damping: 0.5,
+                                angular_damping: 0.3,
+                            })
                         //                .insert(Transform::from_xyz(x as f32 * 4.0, 0.5, z as f32 * 4.0))
                         //                    .insert(PathObstacle);
+                            ;
                     }
                 }
-        */
+        
     }
 
     println!("Game start_game complete, handle:{}", handle);
 }
 
 /* 
-fn obr_new_handles(
+fn process_new_handles(
     mut handles: ResMut<NetHandles>,
     mut new_handles: ResMut<NewNetHandles>,
     rapier_context: Res<RapierContext>,
@@ -510,7 +528,7 @@ fn obr_new_handles(
     for (peer_id, (handle, data)) in &new_handles.handles {
         if let GameMessage::InitData(data) = data {
             println!(
-                "obr_new_handles spawn new player: peer_id {:?}, handle {:?}",
+                "process_new_handles spawn new player: peer_id {:?}, handle {:?}",
                 peer_id, handle
             );
 
@@ -533,7 +551,7 @@ fn obr_new_handles(
 }
 */
 
-pub fn obr_in_raw_message(
+pub fn process_in_raw_message(
     mut raw: ResMut<InMesMap<GameMessage>>,
     mut in_body: ResMut<InMesMap<TankBodyData>>,
     mut in_turret: ResMut<InMesMap<TurretRotation>>,
@@ -553,16 +571,16 @@ pub fn obr_in_raw_message(
     'raw_data: for (player, raw_mes) in raw.data.iter() {
         if GameMessage::DataRequest == *raw_mes {            
             if player_tank_data.is_empty() {
-                log::info!("obr_in_raw_message DataRequest: no player tank data!");
+                log::info!("process_in_raw_message DataRequest: no player tank data!");
                 return;
             }            
 
-            log::info!("obr_in_raw_message DataRequest send tank data");
+            log::info!("process_in_raw_message DataRequest send tank data");
             
             let transform = player_tank_data.single();
             output.data.push(GameMessage::InitData(NewTankData::from(*transform)));
         } else if let GameMessage::InitData(data) = raw_mes {
- //           println!( "obr_in_raw_message InitData player:{:?}  pos:{:?}  angle:{:?}", player, data.pos, data.angle);
+ //           println!( "process_in_raw_message InitData player:{:?}  pos:{:?}  angle:{:?}", player, data.pos, data.angle);
 
             for exist_player in &query_tank_data {
                 if exist_player.handle == *player { // tank for player is already spawned
@@ -599,7 +617,7 @@ pub fn obr_in_raw_message(
     //   log::info!("net handle_conn_events end");
 }
 
-pub fn obr_in_mes_map<T>(
+pub fn process_in_mes_map<T>(
     time: Res<Time>,
     mut input: ResMut<InMesMap<T>>,
     mut query: Query<(&mut MesState<T>, &PlayerData)>,
@@ -609,7 +627,7 @@ pub fn obr_in_mes_map<T>(
         if let Some(data) = input.data.get_mut(&player.handle) {
             state.data = *data;
             state.time = time.seconds_since_startup();
- //           log::info!("obr_in_mes_map data:{:?}", data);
+ //           log::info!("process_in_mes_map data:{:?}", data);
         }
     }
 
@@ -618,7 +636,7 @@ pub fn obr_in_mes_map<T>(
 
 
 //TODO send to player request for the init data
-pub fn obr_in_mes_tank_body(
+pub fn process_in_mes_tank_body(
     time: Res<Time>,
     mut input: ResMut<InMesMap<TankBodyData>>,
     mut query: Query<(&mut MesState<TankBodyData>, &PlayerData)>,
@@ -629,7 +647,7 @@ pub fn obr_in_mes_tank_body(
         if let Some(data) = input.data.get_mut(&player.handle) {
             state.data = *data;
             state.time = time.seconds_since_startup();
-//            log::info!("obr_in_mes_tank_body data:{:?}", data);
+//            log::info!("process_in_mes_tank_body data:{:?}", data);
         }
     }
 
@@ -710,4 +728,5 @@ pub fn set_network_control(
         .entity(entityes.fire_point)
         .insert(MesState::<ShotData>::default());
 }
+
 
