@@ -207,11 +207,12 @@ where
 //                    log::info!("mouse_button process {:?}", mouse_button);
 
                     if mouse_input.just_pressed(*mouse_button) {
-                        log::info!("mouse_button just_pressed {:?}", mouse_button);
+ //                       log::info!("mouse_button just_pressed {:?}", mouse_button);
                         states.push(KeyState::JustPressed);                      
                     } else if mouse_input.pressed(*mouse_button) {
                         states.push(KeyState::Pressed);
                     } else if mouse_input.just_released(*mouse_button) {
+                        log::info!("mouse_button just_released {:?}", mouse_button);
                         states.push(KeyState::JustReleased);
                     }
                     continue;

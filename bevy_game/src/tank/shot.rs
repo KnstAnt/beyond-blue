@@ -94,8 +94,14 @@ pub fn create_player_cannon_shot(
                 linvel: shot_vel,
                 angvel: Vec3::ZERO,
             })
-            .insert(CollisionGroups::new(COLLISION_MISSILE, COLLISION_TERRAIN+COLLISION_UNIT+COLLISION_ENVIRONMENT))
-            .insert(SolverGroups::new(COLLISION_MISSILE, COLLISION_TERRAIN+COLLISION_UNIT+COLLISION_ENVIRONMENT))
+            .insert(CollisionGroups::new(
+                unsafe { Group::from_bits_unchecked(COLLISION_MISSILE)},
+                unsafe { Group::from_bits_unchecked(COLLISION_UNIT+COLLISION_ENVIRONMENT+COLLISION_TERRAIN)},
+            ))
+            .insert(SolverGroups::new(
+                unsafe { Group::from_bits_unchecked(COLLISION_MISSILE)}, 
+                    unsafe { Group::from_bits_unchecked(0)},
+            ))
             .insert(bevy_rapier3d::prelude::ActiveHooks::FILTER_CONTACT_PAIRS)
 //          .insert(CustomFilterTag::GroupShot)
             ;

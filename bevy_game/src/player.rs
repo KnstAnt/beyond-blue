@@ -1,14 +1,13 @@
 use bevy::prelude::Component;
 use bevy::prelude::*;
-use iyes_loopless::prelude::*;
+//use iyes_loopless::prelude::*;
 
-use crate::camera::{CameraState, CameraTarget, MyCamera};
+use crate::camera::{CameraState, CameraTarget};
 use crate::game::SPEED_EPSILON;
 //use crate::matchbox_net::*;
 use crate::ballistics::calc_shot_dir;
 use crate::input::*;
 
-use crate::menu::is_play_offline;
 use crate::tank::{NewTank, TankShotData, NewTanksData};
 use crate::AppState;
 
@@ -147,7 +146,7 @@ impl Plugin for PlayerPlugin {
         )
         .add_system_set(
             SystemSet::on_update(AppState::Playing)
-                .with_system(process_correct_pos.run_if(is_play_offline))
+                .with_system(process_correct_pos)//.run_if(is_play_offline))
             )
 
 
@@ -357,105 +356,7 @@ pub fn prep_turret_input(
         cannon_control.speed = cannon_rotation;
     }
 }
-/*
-pub fn prep_turret_input(
-    time: Res<Time>,
-    local_handles: Res<LocalHandles>,
-    mut query: Query<(&mut ControlTurret, &PlayerData)>,
-    game_control: Res<GameControl<Actions>>,
-) {
-    if local_handles.handles.is_empty() {
-        return;
-    }
 
-    if query.is_empty() {
-        return;
-    }
-
-    let (mut control, player) = query.single_mut();
-    assert!(*local_handles.handles.first().unwrap() == player.handle);
-
-    let mut rotation: f32 = 0.;
-
-    if let Some(key_state) = game_control.get_key_state(Actions::TurretLeft) {
-        rotation += match key_state {
-            KeyState::JustPressed | KeyState::Pressed => -1.,
-            _ => 0.,
-        }
-    }
-
-    if let Some(key_state) = game_control.get_key_state(Actions::TurretRight) {
-        rotation += match key_state {
-            KeyState::JustPressed | KeyState::Pressed => 1.,
-            _ => 0.,
-        }
-    }
-
-    //        println!("player prep_turret_input, rotation: {}", rotation);
-
-    //            println!("player prep_turret_input, ok");
-
-    /*          let speed = crate::tank::utils::calc_rotation_speed(
-                    time.delta_seconds(),
-                    rotation_from_control,
-                    PI,
-                    control.speed,
-                    0.5,
-                    0.2,
-                );
-    */
-    if control.speed != rotation {
-        control.speed = rotation;
-    }
-}
-
-pub fn prep_cannon_input(
-    time: Res<Time>,
-    local_handles: Res<LocalHandles>,
-    mut query: Query<(&mut ControlCannon, &PlayerData)>,
-    game_control: Res<GameControl<Actions>>,
-) {
-    if local_handles.handles.is_empty() {
-        return;
-    }
-
-    if query.is_empty() {
-        return;
-    }
-
-    let (mut control, player) = query.single_mut();
-    assert!(*local_handles.handles.first().unwrap() == player.handle);
-
-    let mut rotation = 0.;
-
-    if let Some(key_state) = game_control.get_key_state(Actions::CannonUp) {
-        rotation += match key_state {
-            KeyState::JustPressed | KeyState::Pressed => 1.,
-            _ => 0.,
-        }
-    }
-
-    if let Some(key_state) = game_control.get_key_state(Actions::CannonDown) {
-        rotation += match key_state {
-            KeyState::JustPressed | KeyState::Pressed => -1.,
-            _ => 0.,
-        }
-    }
-
-    /*let speed = crate::tank::utils::calc_rotation_speed(
-        time.delta_seconds(),
-        rotation,
-        PI / 3.,
-        control.speed,
-        0.3,
-        0.1,
-    );*/
-
-    if control.speed != rotation {
-        control.speed = rotation;
-    }
-}
-*/
 pub fn prep_shot_input(
     time: Res<Time>,
     local_handles: Res<LocalHandles>,

@@ -1,4 +1,5 @@
 use crate::explosion::add_explosion;
+use crate::game::{COLLISION_MISSILE, COLLISION_UNIT, COLLISION_ENVIRONMENT, COLLISION_TERRAIN};
 use crate::game::GameMessage;
 use crate::game::InMesVec;
 use crate::game::OutGameMessages;
@@ -124,8 +125,14 @@ pub fn create_shot_from_net(
                 linvel: shot_vel,
                 angvel: Vec3::ZERO,
             })
-            .insert(CollisionGroups::new(0b0100, 0b0011))
-            .insert(SolverGroups::new(0b0100, 0b0011))
+            .insert(CollisionGroups::new(
+                unsafe { Group::from_bits_unchecked(COLLISION_MISSILE)},
+                unsafe { Group::from_bits_unchecked(COLLISION_UNIT+COLLISION_ENVIRONMENT+COLLISION_TERRAIN)},
+            ))
+            .insert(SolverGroups::new(
+                unsafe { Group::from_bits_unchecked(COLLISION_MISSILE)}, 
+                    unsafe { Group::from_bits_unchecked(0)},
+            ))
             .insert(bevy_rapier3d::prelude::ActiveHooks::FILTER_CONTACT_PAIRS)
 //          .insert(CustomFilterTag::GroupShot)
             ;
@@ -140,6 +147,7 @@ fn handle_explosion_events_net(
     mut events: EventReader<bevy_rapier3d::prelude::CollisionEvent>,
     query: Query<(&GlobalTransform, Entity, &ShotExplosionData, &PlayerData)>,
     mut output: ResMut<OutGameMessages<GameMessage>>,
+    rapier_context: Res<RapierContext>,
 ) {
     for event in events.iter() {
         if let bevy_rapier3d::prelude::CollisionEvent::Started(e1, e2, _f) = event {
@@ -168,6 +176,7 @@ fn handle_explosion_events_net(
                             shot_data.explosion_force,
                             shot_data.explosion_radius,
                             player.handle,
+                            &rapier_context,
                         );
 
                         output.data.push(GameMessage::from(ExplosionData {
@@ -190,6 +199,7 @@ fn handle_explosion_events_local(
     //    mut materials: ResMut<Assets<StandardMaterial>>,
     mut events: EventReader<bevy_rapier3d::prelude::CollisionEvent>,
     query: Query<(&GlobalTransform, Entity, &ShotExplosionData, &PlayerData)>,
+    rapier_context: Res<RapierContext>,
 ) {
     for event in events.iter() {
         if let bevy_rapier3d::prelude::CollisionEvent::Started(e1, e2, _f) = event {
@@ -217,6 +227,7 @@ fn handle_explosion_events_local(
                         shot_data.explosion_force,
                         shot_data.explosion_radius,
                         player.handle,
+                        &rapier_context,
                     );
 
                     commands.entity(entity).despawn_recursive();
@@ -284,6 +295,7 @@ fn process_shots_game_local(
                 shot_data.explosion_force,
                 shot_data.explosion_radius,
                 player.handle,
+                &rapier_context,
             );
 
             commands.entity(entity).despawn_recursive();
@@ -351,6 +363,7 @@ fn process_shots_game_net(
                     shot_data.explosion_force,
                     shot_data.explosion_radius,
                     player.handle,
+                    &rapier_context,
                 );
 
                 output.data.push(GameMessage::from(ExplosionData {

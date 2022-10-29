@@ -1,10 +1,6 @@
 //use bevy::prelude::Component;
 //use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use std::f32::consts::PI;
-
-use bevy::prelude::Vec3;
-
 
 pub fn delta_dir(target_dir: f32, old_dir: f32) -> f32 {
     normalize(target_dir - old_dir)

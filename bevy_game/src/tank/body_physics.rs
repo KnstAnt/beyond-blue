@@ -1,8 +1,9 @@
 use std::collections::LinkedList;
 use bevy::prelude::*;
 use bevy_rapier3d::{prelude::*, rapier::prelude::JointAxis};
+//use bevy_rapier3d::{prelude::*, rapier::{prelude::*, self}};
 
-use crate::game::{COLLISION_UNIT, COLLISION_TERRAIN, COLLISION_WHEEL, COLLISION_ENVIRONMENT, COLLISION_ALL};
+use crate::game::{COLLISION_UNIT, COLLISION_TERRAIN, COLLISION_ENVIRONMENT, COLLISION_ALL, COLLISION_WHEEL};
 
 //use crate::input::MyInput;
 
@@ -100,12 +101,25 @@ pub fn create_body(
         body_angle,
         vehicle_cfg.body_half_size,
         &mut commands,
-        CollisionGroups::new(COLLISION_UNIT, COLLISION_ALL),
-        SolverGroups::new(COLLISION_UNIT, COLLISION_ALL),
+        CollisionGroups::new(
+            unsafe { Group::from_bits_unchecked(COLLISION_UNIT)},
+            unsafe { Group::from_bits_unchecked(COLLISION_ALL)},
+        ),
+        SolverGroups::new(
+            unsafe { Group::from_bits_unchecked(COLLISION_UNIT)},
+            unsafe { Group::from_bits_unchecked(COLLISION_UNIT+COLLISION_ENVIRONMENT+COLLISION_TERRAIN)},
+        ),
     );
 
-    let wheel_collision_group = CollisionGroups::new(COLLISION_WHEEL, COLLISION_TERRAIN+COLLISION_ENVIRONMENT);
-    let wheel_solver_group = SolverGroups::new(COLLISION_WHEEL, COLLISION_TERRAIN+COLLISION_ENVIRONMENT);
+    let wheel_collision_group = CollisionGroups::new(
+        unsafe { Group::from_bits_unchecked(COLLISION_WHEEL)},
+        unsafe { Group::from_bits_unchecked(COLLISION_TERRAIN+COLLISION_ENVIRONMENT)},
+    );
+    let wheel_solver_group = SolverGroups::new(
+        unsafe { Group::from_bits_unchecked(COLLISION_WHEEL)},
+        unsafe { Group::from_bits_unchecked(COLLISION_TERRAIN+COLLISION_ENVIRONMENT)},
+    );
+
     {
         let offset = Vec3::new(
             vehicle_cfg.offset_x,
@@ -383,8 +397,14 @@ fn spawn_axle(
         .insert(NameComponent {
             name: format!("{} Axle", prefix),
         })
-        .insert(CollisionGroups::new(0, 0))
-        .insert(SolverGroups::new(0, 0))
+        .insert(CollisionGroups::new(
+            unsafe { Group::from_bits_unchecked(0)},
+            unsafe { Group::from_bits_unchecked(0)},
+        ))
+        .insert(SolverGroups::new(
+            unsafe { Group::from_bits_unchecked(0)}, 
+                unsafe { Group::from_bits_unchecked(0)},
+        ))
         //		.insert(Tag::Axle)
 //        .insert(collision_groups)
 //        .insert(solver_groups)

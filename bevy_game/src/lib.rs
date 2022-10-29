@@ -27,10 +27,10 @@ use crate::game::GamePlugin;
 //use crate::explosion::ExplosionPlugin;
 
 
-use bevy::{app::App, log::Level};
+use bevy::app::App;
 
 #[cfg(debug_assertions)]
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+//use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 //use matchbox_net::NetPlugin;
 

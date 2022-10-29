@@ -1,13 +1,13 @@
 use crate::AppState;
-use crate::game::{COLLISION_TERRAIN, EXCLUDE_TERRAIN, COLLISION_ALL, COLLISION_TRIGGER, COLLISION_MISSILE, COLLISION_UNIT, COLLISION_WHEEL, COLLISION_ENVIRONMENT};
-use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
-use bevy::prelude::shape::UVSphere;
-use bevy::render::primitives::Sphere;
-use bevy::{ecs::component::Component, input::mouse::MouseMotion};
-use bevy::{math, prelude::*};
-use bevy_prototype_debug_lines::DebugLines;
+use crate::game::{COLLISION_TERRAIN, COLLISION_MISSILE};
+use bevy::input::mouse::MouseWheel;
+//use bevy::prelude::shape::UVSphere;
+//use bevy::render::primitives::Sphere;
+use bevy::ecs::component::Component;
+use bevy::prelude::*;
+//use bevy_prototype_debug_lines::DebugLines;
 use bevy_rapier3d::plugin::RapierContext;
-use bevy_rapier3d::prelude::{ColliderDebugColor, InteractionGroups, RigidBody};
+use bevy_rapier3d::prelude::InteractionGroups;
 //use heron::rapier_plugin::PhysicsWorld;
 
 use std::{marker::PhantomData, ops::Mul};
@@ -330,9 +330,11 @@ fn move_camera_target_by_mouse(
     */
 
     let filter = bevy_rapier3d::prelude::QueryFilter::from(
-        InteractionGroups::new(COLLISION_MISSILE, COLLISION_TERRAIN)
+        InteractionGroups::new(
+            unsafe { bevy_rapier3d::rapier::geometry::Group::from_bits_unchecked(COLLISION_MISSILE) },
+            unsafe { bevy_rapier3d::rapier::geometry::Group::from_bits_unchecked(COLLISION_TERRAIN) },
+        )
     );
-
 
     // Then cast the ray.
     let result = rapier_context.cast_ray(

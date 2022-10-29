@@ -1,20 +1,19 @@
-use bevy::math::Affine3A;
 use bevy::prelude::*;
 use bevy_prototype_debug_lines::*;
 use bevy_rapier3d::prelude::*;
 use iyes_loopless::prelude::*;
 use rand::prelude::*;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
+use crate::explosion::NetData as ExplosionData;
 use crate::explosion::*;
 use crate::menu::{is_play_offline, is_play_online};
 use crate::network::NetPlugin;
 use crate::player::*;
 use crate::shot::*;
 use crate::tank::*;
-use crate::explosion::NetData as ExplosionData;
 
 use crate::cleanup::cleanup_system;
 
@@ -53,7 +52,6 @@ pub struct GameClose;
 
 pub struct TempForCamera;
 
-
 pub const COLLISION_TERRAIN: u32 = 0b000001;
 pub const COLLISION_UNIT: u32 = 0b000010;
 pub const COLLISION_WHEEL: u32 = 0b00100;
@@ -65,11 +63,11 @@ pub const EXCLUDE_TERRAIN: u32 = 0b111110;
 
 pub const MAX_OUT_DELTA_TIME: f32 = 3.;
 pub const MIN_OUT_DELTA_TIME: f32 = 0.5;
-pub const OUT_ANGLE_EPSILON: f32 = 1.0*std::f32::consts::PI/180.;
-pub const ANGLE_EPSILON: f32 = 0.3*std::f32::consts::PI/180.;
-pub const SPEED_EPSILON: f32 = 0.3*std::f32::consts::PI/180.;
+pub const OUT_ANGLE_EPSILON: f32 = 1.0 * std::f32::consts::PI / 180.;
+pub const ANGLE_EPSILON: f32 = 0.3 * std::f32::consts::PI / 180.;
+pub const SPEED_EPSILON: f32 = 0.3 * std::f32::consts::PI / 180.;
 pub const POS_EPSILON: f32 = 0.1;
-pub const POS_EPSILON_QRT: f32 = POS_EPSILON*POS_EPSILON;
+pub const POS_EPSILON_QRT: f32 = POS_EPSILON * POS_EPSILON;
 
 #[derive(Debug, Default)]
 pub struct OutMessageState<T>
@@ -132,7 +130,9 @@ pub struct NewTankData {
 
 impl From<Transform> for NewTankData {
     fn from(transform: Transform) -> Self {
-        Self{matrix: transform.compute_matrix()}
+        Self {
+            matrix: transform.compute_matrix(),
+        }
     }
 }
 
@@ -172,8 +172,6 @@ impl From<ExplosionData> for GameMessage {
     }
 }
 
-
-
 /// This plugin handles Game related stuff like movement
 /// Game logic is only active during the State `AppState::Playing`
 impl Plugin for GamePlugin {
@@ -181,7 +179,7 @@ impl Plugin for GamePlugin {
         app.add_plugin(DebugLinesPlugin::with_depth_test(true))
             .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
             //            .add_plugin(RapierPhysicsPlugin::<&CustomFilterTag>::default())
-//            .add_plugin(RapierDebugRenderPlugin::default())
+                        .add_plugin(RapierDebugRenderPlugin::default())
             .add_plugin(CameraPlugin::<TempForCamera>::default())
             .add_plugin(TerrainPlugin)
             .add_plugin(PlayerPlugin)
@@ -189,19 +187,16 @@ impl Plugin for GamePlugin {
             .add_plugin(ShotPlugin)
             .add_plugin(ExplosionPlugin)
             .add_plugin(NetPlugin)
-
             .insert_resource(InMesMap::<GameMessage>::default())
             .insert_resource(InMesMap::<TankBodyData>::default())
             .insert_resource(InMesMap::<TurretRotation>::default())
             .insert_resource(InMesMap::<CannonRotation>::default())
-            .insert_resource(InMesVec::<ShotData>::default())     
-            .insert_resource(InMesVec::<ExplosionData>::default())  
-
+            .insert_resource(InMesVec::<ShotData>::default())
+            .insert_resource(InMesVec::<ExplosionData>::default())
             .insert_resource(OutGameMessages::<GameMessage>::default())
             .insert_resource(OutMessageState::<TankBodyData>::default())
             .insert_resource(OutMessageState::<TurretRotation>::default())
             .insert_resource(OutMessageState::<CannonRotation>::default())
-
             .add_system_set(SystemSet::on_enter(AppState::PreparePlaying).with_system(setup))
             .add_system_set(
                 SystemSet::on_update(AppState::PreparePlaying)
@@ -211,23 +206,15 @@ impl Plugin for GamePlugin {
             .add_system_set(SystemSet::on_enter(AppState::Playing).with_system(start_game))
             .add_system_set(
                 SystemSet::on_update(AppState::Playing)
+                    .with_system(process_in_raw_message.before(process_in_mes_map::<TankBodyData>))
                     .with_system(
-                        process_in_raw_message
-                        .before(process_in_mes_map::<TankBodyData>),
+                        //                       process_in_mes_map::<TankBodyData>
+                        process_in_mes_tank_body.after(process_in_raw_message),
                     )
+                    .with_system(process_in_mes_map::<TurretRotation>.after(process_in_raw_message))
                     .with_system(
- //                       process_in_mes_map::<TankBodyData>
-                        process_in_mes_tank_body
-                        .after(process_in_raw_message),
-                    )
-                    .with_system(
-                        process_in_mes_map::<TurretRotation>
-                        .after(process_in_raw_message),
-                    )
-                    .with_system(
-                        process_in_mes_map::<CannonRotation>
-                        .after(process_in_raw_message),
-                    )
+                        process_in_mes_map::<CannonRotation>.after(process_in_raw_message),
+                    ),
             )
             .add_system_set(
                 ConditionSet::new()
@@ -316,7 +303,6 @@ fn setup(mut commands: Commands, model_assets: Res<ModelAssets>) {
 fn on_terrain_complete(mut playing_scene: ResMut<PlayingScene>) {
     println!("Game on_terrain_complete");
 
-
     playing_scene.playing_state = PlayingState::CreateDynamic;
 }
 
@@ -330,68 +316,9 @@ fn setup_dynamic(
     //       mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     println!("Game setup_dynamic start");
-    /*
-       let start_pos_x = 0.0;
-       let start_pos_z = 0.0;
 
-
-           let body_pos = get_pos_on_ground(
-               Vec3::new(
-                   start_pos_x - 11.,
-                   2.,
-                   start_pos_z
-               ),
-               &rapier_context,
-           ).unwrap();
-
-           println!("Game setup_dynamic body_pos {}", body_pos);
-
-           let player_tank_control_data = create_tank(
-               &mut commands,
-               &model_assets,
-               body_pos );
-
-           commands.insert_resource(player_tank_control_data);
-
-
-           let mut rng = rand::thread_rng();
-       //    let y: f64 = rng.gen(); // generates a float between 0 and 1
-
-           // Spawn obstacles
-           for x in -4..=4 {
-               for z in -4..=4 {
-                   let size: f32 = rng.gen();
-                   let half_size = size/2. + 0.1;
-                   commands
-                       .spawn_bundle(PbrBundle {
-                           mesh: meshes.add(Mesh::from(shape::Cube::new(half_size*2.))),
-                           material: materials.add(Color::BLACK.into()),
-                           transform: Transform::from_translation(
-                               get_pos_on_ground(
-                                   Vec3::new(
-                                       start_pos_x + x as f32 * 2.0,
-                                       half_size,
-                                       start_pos_z + z as f32 * 2.0,
-                                   ),
-                                   &rapier_context,
-                               )
-                               .unwrap(),
-                           ),
-                           ..Default::default()
-                       })
-                       .insert(bevy_rapier3d::prelude::RigidBody::Dynamic)
-                       .insert(bevy_rapier3d::prelude::Collider::cuboid(half_size, half_size, half_size))
-                       .insert(CollisionGroups::new(0b0010, 0b1111))
-                       .insert(SolverGroups::new(0b0010, 0b1111))
-                       .insert(Restitution::coefficient(0.7))
-                       .insert(ColliderMassProperties::Density(1.0));
-                   //                .insert(Transform::from_xyz(x as f32 * 4.0, 0.5, z as f32 * 4.0))
-                   //                    .insert(PathObstacle);
-               }
-           }
-    */
     println!("Game setup_dynamic complete");
-    
+
     playing_scene.playing_state = PlayingState::Complete;
     state.replace(AppState::Playing).unwrap();
     //   commands.insert_resource(NextState(SetupState::SetupComplete));
@@ -411,12 +338,8 @@ pub fn spawn_player(
             ..default()
         });
     */
-    if let Some(new_pos) = get_pos_on_ground(Vec3::new(pos.x, 1., pos.y), rapier_context) {
-        data.vector.push(NewTank {
-            handle,
-            pos,
-            angle,
-        });
+    if let Some(_new_pos) = get_pos_on_ground(Vec3::new(pos.x, 1., pos.y), rapier_context) {
+        data.vector.push(NewTank { handle, pos, angle });
 
         println!("Game spawn_player complete, handle:{}", handle);
 
@@ -453,10 +376,10 @@ pub fn start_game(
     */
     let mut rng = thread_rng();
 
-  //  let start_pos = Vec3::ZERO;
-  //  let start_angle = 0.;
-  //.with_translation(Vec3::new(300., 0., -400.))
-    let start_pos = Vec3::new(15., 0., -15.);//Vec3::new(rng.gen_range(-10.0..10.0), 0., rng.gen_range(-10.0..10.0));
+    //  let start_pos = Vec3::ZERO;
+    //  let start_angle = 0.;
+    //.with_translation(Vec3::new(300., 0., -400.))
+    let start_pos = Vec3::new(0., 0., 0.); //Vec3::new(rng.gen_range(-10.0..10.0), 0., rng.gen_range(-10.0..10.0));
     let start_angle = rng.gen_range(-std::f32::consts::PI..std::f32::consts::PI);
 
     if let Some(pos) = get_pos_on_ground(start_pos, &rapier_context) {
@@ -466,43 +389,38 @@ pub fn start_game(
             angle: start_angle,
         });
 
-        
-                let mut rng = rand::thread_rng();
+        if true {
+            let mut rng = rand::thread_rng();
             //    let y: f64 = rng.gen(); // generates a float between 0 and 1
 
-                // Spawn obstacles
-                let delta = 15.;
-                let pos_min_x = start_pos.x - delta;
-                let pos_max_x = start_pos.x + delta;
-                let pos_min_z = start_pos.z - delta;
-                let pos_max_z = start_pos.z + delta;
+            // Spawn obstacles
+            let delta = 5.;
+            let pos_min_x = start_pos.x - delta;
+            let pos_max_x = start_pos.x + delta;
+            let pos_min_z = start_pos.z - delta;
+            let pos_max_z = start_pos.z + delta;
 
-                let qnt = (delta*delta*30.) as usize;
+            let qnt = (delta * delta * 10.) as usize;
 
-                    for i in 0..qnt {
-                        let pos_x = rng.gen_range(pos_min_x..pos_max_x);
-                        let pos_z = rng.gen_range(pos_min_z..pos_max_z);
+            for i in 0..qnt {
+                let pos_x = rng.gen_range(pos_min_x..pos_max_x);
+                let pos_z = rng.gen_range(pos_min_z..pos_max_z);
 
-                        let size: f32 = if i < 100 {
-                            rng.gen_range(0.25..0.6)
-                        } else {
-                            rng.gen_range(0.07..0.2)
-                        };
+                let size: f32 = if i < 100 {
+                    rng.gen_range(0.25..0.6)
+                } else {
+                    rng.gen_range(0.07..0.2)
+                };
 
-                        let half_size = size/2.;
+                let half_size = size / 2.;
 
-                        let linear_damping = 0.2/size;
-                        let angular_damping = 0.03/size;
+                let linear_damping = 0.2 / size;
+                let angular_damping = 0.03 / size;
 
-                        if let Some(pos) = get_pos_on_ground(
-                            Vec3::new(
-                                pos_x,
-                                half_size + 1.,
-                                pos_z,
-                            ),
-                            &rapier_context,
-                        ) {
-                        commands
+                if let Some(pos) =
+                    get_pos_on_ground(Vec3::new(pos_x, half_size + 1., pos_z), &rapier_context)
+                {
+                    commands
                             .spawn_bundle(PbrBundle {
                                 mesh: meshes.add(Mesh::from(shape::Cube::new(half_size*2.))),
                                 material: materials.add(Color::BLACK.into()),
@@ -511,8 +429,14 @@ pub fn start_game(
                             })
                             .insert(bevy_rapier3d::prelude::RigidBody::Dynamic)
                             .insert(bevy_rapier3d::prelude::Collider::cuboid(half_size, half_size, half_size))
-                            .insert(CollisionGroups::new(COLLISION_ENVIRONMENT, COLLISION_ALL))
-                            .insert(SolverGroups::new(COLLISION_ENVIRONMENT, COLLISION_ALL))
+                            .insert(CollisionGroups::new(
+                                unsafe { Group::from_bits_unchecked(COLLISION_ENVIRONMENT)},
+                                unsafe { Group::from_bits_unchecked(COLLISION_ALL)},
+                            ))
+                            .insert(SolverGroups::new(
+                                unsafe { Group::from_bits_unchecked(COLLISION_ENVIRONMENT)},
+                                unsafe { Group::from_bits_unchecked(COLLISION_ALL)},
+                            ))
                             .insert(Restitution::coefficient(0.7))
                             .insert(ColliderMassProperties::Density(1.0))
                             .insert(Damping {
@@ -522,14 +446,15 @@ pub fn start_game(
                         //                .insert(Transform::from_xyz(x as f32 * 4.0, 0.5, z as f32 * 4.0))
                         //                    .insert(PathObstacle);
                             ;
-                        }
-                    }       
+                }
+            }
+        }
     }
 
     println!("Game start_game complete, handle:{}", handle);
 }
 
-/* 
+/*
 fn process_new_handles(
     mut handles: ResMut<NetHandles>,
     mut new_handles: ResMut<NewNetHandles>,
@@ -563,7 +488,6 @@ fn process_new_handles(
     });
 }
 */
-
 pub fn process_in_raw_message(
     mut raw: ResMut<InMesMap<GameMessage>>,
     mut in_body: ResMut<InMesMap<TankBodyData>>,
@@ -575,28 +499,30 @@ pub fn process_in_raw_message(
     query_tank_data: Query<&PlayerData, With<MesState<TankBodyData>>>,
     mut spawn_tank_data: ResMut<NewTanksData>,
     mut output: ResMut<OutGameMessages<GameMessage>>,
-
     //  from_server: Res<Arc<Mutex<mpsc::Receiver<NetEvent>>>>,
     //  to_server: ResMut<mpsc::Sender<NetMessage>>,
     //   time: Res<Time>,
 ) {
-    //    log::info!("net handle_conn_events start");    
+    //    log::info!("net handle_conn_events start");
     'raw_data: for (player, raw_mes) in raw.data.iter() {
-        if GameMessage::DataRequest == *raw_mes {            
+        if GameMessage::DataRequest == *raw_mes {
             if player_tank_data.is_empty() {
                 log::info!("process_in_raw_message DataRequest: no player tank data!");
                 return;
-            }            
+            }
 
             log::info!("process_in_raw_message DataRequest send tank data");
-            
+
             let transform = player_tank_data.single();
-            output.data.push(GameMessage::InitData(NewTankData::from(*transform)));
+            output
+                .data
+                .push(GameMessage::InitData(NewTankData::from(*transform)));
         } else if let GameMessage::InitData(data) = raw_mes {
- //           println!( "process_in_raw_message InitData player:{:?}  pos:{:?}  angle:{:?}", player, data.pos, data.angle);
+            //           println!( "process_in_raw_message InitData player:{:?}  pos:{:?}  angle:{:?}", player, data.pos, data.angle);
 
             for exist_player in &query_tank_data {
-                if exist_player.handle == *player { // tank for player is already spawned
+                if exist_player.handle == *player {
+                    // tank for player is already spawned
                     continue 'raw_data;
                 }
             }
@@ -605,7 +531,10 @@ pub fn process_in_raw_message(
 
             spawn_tank_data.vector.push(NewTank {
                 handle: *player,
-                pos: Vec2{x: transform.translation.x, y: transform.translation.z},
+                pos: Vec2 {
+                    x: transform.translation.x,
+                    y: transform.translation.z,
+                },
                 angle: transform.rotation.to_euler(EulerRot::YXZ).0,
             });
         } else if let GameMessage::BodyMove(data) = raw_mes {
@@ -634,45 +563,45 @@ pub fn process_in_mes_map<T>(
     time: Res<Time>,
     mut input: ResMut<InMesMap<T>>,
     mut query: Query<(&mut MesState<T>, &PlayerData)>,
-//    mut output: ResMut<OutGameMessages<GameMessage>>,
-) where T: 'static + Serialize + DeserializeOwned + Default + Debug + Component + PartialEq + Copy {
+    //    mut output: ResMut<OutGameMessages<GameMessage>>,
+) where
+    T: 'static + Serialize + DeserializeOwned + Default + Debug + Component + PartialEq + Copy,
+{
     for (mut state, player) in query.iter_mut() {
         if let Some(data) = input.data.get_mut(&player.handle) {
             state.data = *data;
             state.time = time.seconds_since_startup();
- //           log::info!("process_in_mes_map data:{:?}", data);
+            //           log::info!("process_in_mes_map data:{:?}", data);
         }
     }
 
     input.data.clear();
 }
 
-
 //TODO send to player request for the init data
 pub fn process_in_mes_tank_body(
     time: Res<Time>,
     mut input: ResMut<InMesMap<TankBodyData>>,
     mut query: Query<(&mut MesState<TankBodyData>, &PlayerData)>,
-//    mut output: ResMut<OutGameMessages<GameMessage>>,
+    //    mut output: ResMut<OutGameMessages<GameMessage>>,
     mut spawn_tank_data: ResMut<NewTanksData>,
 ) {
     for (mut state, player) in query.iter_mut() {
         if let Some(data) = input.data.get_mut(&player.handle) {
             state.data = *data;
             state.time = time.seconds_since_startup();
-//            log::info!("process_in_mes_tank_body data:{:?}", data);
+            //            log::info!("process_in_mes_tank_body data:{:?}", data);
         }
     }
 
     'input_cicle: for (input_player, data) in input.data.iter() {
-
         for (mut _state, query_player) in query.iter() {
             if *input_player == query_player.handle {
                 continue 'input_cicle;
             }
         }
-        
-//        output.data.push(GameMessage::DataRequest);
+
+        //        output.data.push(GameMessage::DataRequest);
         spawn_tank_data.vector.push(NewTank {
             handle: *input_player,
             pos: data.pos,
@@ -685,21 +614,18 @@ pub fn process_in_mes_tank_body(
     input.data.clear();
 }
 
-/* 
+/*
 fn send_out<T>(
     mut message: ResMut<OutMessageTime<T>>,
     mut output: ResMut<OutGameMessages<GameMessage>>,
 ) where T: 'static + Serialize + DeserializeOwned + Default + Component + PartialEq {
     if message.is_changed() {
         output.data.push(GameMessage::from(message.data));
-    //    log::info!("Network send_out_explosion {:?}", res);    
+    //    log::info!("Network send_out_explosion {:?}", res);
     }
 }
 */
-pub fn set_player_control(
-    commands: &mut Commands, 
-    entityes: &TankEntityes
-) {
+pub fn set_player_control(commands: &mut Commands, entityes: &TankEntityes) {
     commands
         .entity(entityes.body)
         .insert(ControlMove::default());
@@ -724,7 +650,7 @@ pub fn set_network_control(
     commands
         .entity(entityes.body)
         .insert(MesState::<TankBodyData> {
-            data: TankBodyData{
+            data: TankBodyData {
                 movement: Vec2::ZERO,
                 pos,
                 angle,
@@ -741,5 +667,3 @@ pub fn set_network_control(
         .entity(entityes.fire_point)
         .insert(MesState::<ShotData>::default());
 }
-
-

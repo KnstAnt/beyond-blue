@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
+use bevy_rapier3d::rapier::prelude::{ColliderBuilder, SharedShape};
 use iyes_loopless::prelude::*;
 
 use rand::Rng;
@@ -106,16 +107,38 @@ pub fn add_explosion(
     commands: &mut Commands,
     //    mut meshes: ResMut<Assets<Mesh>>,
     //    mut materials: ResMut<Assets<StandardMaterial>>,
-    pos: Vec3,
+    position: Vec3,
     force: f32,
     radius: f32,
     player: usize,
+    rapier_context: &RapierContext,
 ) {
     //    info!("add_explosion start");
 
     //    info!("add_explosion process");
 
-    log::info!("add_explosion pos: {:?}", pos);
+    log::info!("add_explosion pos: {:?}", position);
+
+    let filter = bevy_rapier3d::prelude::QueryFilter::from(
+        InteractionGroups::new(
+            unsafe { bevy_rapier3d::rapier::geometry::Group::from_bits_unchecked(COLLISION_TRIGGER) },
+            unsafe { bevy_rapier3d::rapier::geometry::Group::from_bits_unchecked(COLLISION_UNIT + COLLISION_ENVIRONMENT) },
+        )
+    );
+
+    rapier_context.intersections_with_shape(
+        position,
+        Quat::IDENTITY,
+        &Collider::compound(vec![(Vec3::ZERO, Quat::IDENTITY, Collider::ball(radius))]),
+        filter,
+        |entity| {
+            commands.entity(entity).insert(Marker {
+                force,
+                position,
+            });
+            true
+        }
+    );
 
     commands
         .spawn_bundle(PointLightBundle {
@@ -127,28 +150,47 @@ pub fn add_explosion(
                 ..default()
             },
 
-            transform: Transform::from_translation(pos),
+            transform: Transform::from_translation(position),
 
             ..default()
         })
         .insert(Data::new(force))
         .insert(PlayerData { handle: player })
-        .insert(bevy_rapier3d::prelude::Collider::ball(radius))
+//        .insert(bevy_rapier3d::prelude::Collider::ball(radius))
+ /*       .insert(bevy_rapier3d::prelude::Collider::from(Collider::compound(vec![(pos, Quat::IDENTITY, Collider::ball(radius))])))
         .insert(bevy_rapier3d::geometry::Sensor)
         .insert(bevy_rapier3d::prelude::ActiveEvents::COLLISION_EVENTS)
         .insert(CollisionGroups::new(
-            COLLISION_TRIGGER,
-            COLLISION_UNIT + COLLISION_ENVIRONMENT,
+            unsafe { Group::from_bits_unchecked(COLLISION_TRIGGER)},
+            unsafe { Group::from_bits_unchecked( COLLISION_UNIT + COLLISION_ENVIRONMENT)},
         ))
         .insert(SolverGroups::new(
-            COLLISION_TRIGGER,
-            COLLISION_UNIT + COLLISION_ENVIRONMENT,
-        ));
+            unsafe { Group::from_bits_unchecked(COLLISION_TRIGGER)}, 
+                unsafe { Group::from_bits_unchecked(COLLISION_UNIT + COLLISION_ENVIRONMENT)},
+        ))
+ */       ;
     // TODO  add a lot of ball for emulation explosion
 
     //    info!("add_explosion finished");
 }
 
+fn process_explosion_event(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut Data)>,
+) {
+    // info!("process_explosion_event start");
+    for (entity, mut data) in query.iter_mut() {
+        data.time -= time.delta_seconds();
+        // if it finished, despawn the bomb
+        if data.time <= 0. {
+            //           info!("remove_shots finished");
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
+/* 
 fn process_explosion_event(
     mut commands: Commands,
     time: Res<Time>,
@@ -184,6 +226,7 @@ fn process_explosion_event(
         }
     }
 }
+*/
 
 fn apply_explosion(
     mut commands: Commands,
@@ -218,7 +261,7 @@ fn apply_explosion(
         
         commands.entity(exploded_entity).insert(ExternalImpulse {
             impulse: explosion_dir.normalize() * force,
-       //     torque_impulse: Vec3::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0)).normalize() * force,
+//            torque_impulse: Vec3::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0)).normalize() * force,
             ..default()
         });
 
@@ -226,18 +269,24 @@ fn apply_explosion(
     }
 }
 
-fn process_in_explosion(mut commands: Commands, mut input: ResMut<InMesVec<NetData>>) {
+fn process_in_explosion(
+    mut commands: Commands, 
+    mut input: ResMut<InMesVec<NetData>>,
+    rapier_context: Res<RapierContext>,
+) {
     for (player, explosion) in &input.data {
         log::info!(
             "Explosion process_in_explosion add_explosion pos:{:?}",
             explosion.pos
         );
+
         add_explosion(
             &mut commands,
             explosion.pos,
             explosion.force,
             explosion.radius,
             *player,
+            &rapier_context,
         );
     }
 

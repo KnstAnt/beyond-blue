@@ -1,7 +1,7 @@
 
 // from https://habr.com/ru/post/538952/ https://github.com/forrestthewoods/lib_fts
 
-use std::f32::consts::{PI, FRAC_PI_4};
+use std::f32::consts::FRAC_PI_4;
 
 use bevy::prelude::Vec3;
 

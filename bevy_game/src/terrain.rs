@@ -6,7 +6,7 @@ use iyes_loopless::prelude::ConditionSet;
 use iyes_loopless::prelude::IntoConditionalSystem;
 
 use crate::game::COLLISION_MISSILE;
-use crate::game::{COLLISION_UNIT, COLLISION_TERRAIN, COLLISION_WHEEL, COLLISION_ENVIRONMENT, COLLISION_ALL};
+use crate::game::{COLLISION_UNIT, COLLISION_TERRAIN, COLLISION_WHEEL, COLLISION_ENVIRONMENT};
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum TerrainState {
@@ -101,7 +101,7 @@ fn setup_terrain_assets(
     mut _meshes: ResMut<Assets<Mesh>>,
     mut _materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    if true {
+    if false {
         if let Some(scene_handle) = &terrain_scene.scene_handle {
             println!("terrain setup_terrain_assets");
 
@@ -250,8 +250,14 @@ fn add_test_plane(
         .insert(Transform::from_xyz(0.0, -1., 0.0))
         .insert(bevy_rapier3d::prelude::RigidBody::Fixed)
 //        .insert(CustomFilterTag::GroupTerrain)
-        .insert(CollisionGroups::new(COLLISION_TERRAIN, COLLISION_UNIT+COLLISION_WHEEL+COLLISION_ENVIRONMENT+COLLISION_MISSILE))
-        .insert(SolverGroups::new(COLLISION_TERRAIN, COLLISION_UNIT+COLLISION_WHEEL+COLLISION_ENVIRONMENT))
+        .insert(CollisionGroups::new(
+            unsafe { Group::from_bits_unchecked(COLLISION_TERRAIN)},
+            unsafe { Group::from_bits_unchecked( COLLISION_UNIT+COLLISION_WHEEL+COLLISION_ENVIRONMENT+COLLISION_MISSILE)},
+        ))
+        .insert(SolverGroups::new(
+            unsafe { Group::from_bits_unchecked(COLLISION_TERRAIN)}, 
+                unsafe { Group::from_bits_unchecked(COLLISION_UNIT+COLLISION_WHEEL+COLLISION_ENVIRONMENT)},
+        ))
         .insert(TerrainRootEntity)
         .insert(Friction::coefficient(0.3))
         ;
@@ -291,8 +297,14 @@ fn setup_terrain_physics(
                     .insert(collider)
                     .insert(bevy_rapier3d::prelude::RigidBody::Fixed)
                     .insert(Friction::coefficient(0.3))
-                    .insert(CollisionGroups::new(COLLISION_TERRAIN, COLLISION_UNIT+COLLISION_WHEEL+COLLISION_ENVIRONMENT+COLLISION_MISSILE))
-                    .insert(SolverGroups::new(COLLISION_TERRAIN, COLLISION_UNIT+COLLISION_WHEEL+COLLISION_ENVIRONMENT))
+                    .insert(CollisionGroups::new(
+                        unsafe { Group::from_bits_unchecked(COLLISION_TERRAIN)},
+                        unsafe { Group::from_bits_unchecked( COLLISION_UNIT+COLLISION_WHEEL+COLLISION_ENVIRONMENT+COLLISION_MISSILE)},
+                    ))
+                    .insert(SolverGroups::new(
+                        unsafe { Group::from_bits_unchecked(COLLISION_TERRAIN)}, 
+                            unsafe { Group::from_bits_unchecked(COLLISION_UNIT+COLLISION_WHEEL+COLLISION_ENVIRONMENT)},
+                    ))
  //                   .insert(CustomFilterTag::GroupTerrain)
                     ;
 
@@ -308,7 +320,10 @@ pub fn get_pos_on_ground(pos: Vec3, rapier_context: &RapierContext) -> Option<Ve
  //   println!("terrain get_pos_on_ground");
 
     let filter = bevy_rapier3d::prelude::QueryFilter::from(
-        InteractionGroups::new(COLLISION_MISSILE, COLLISION_TERRAIN)
+        InteractionGroups::new(
+            unsafe { bevy_rapier3d::rapier::geometry::Group::from_bits_unchecked(COLLISION_MISSILE) },
+            unsafe { bevy_rapier3d::rapier::geometry::Group::from_bits_unchecked(COLLISION_TERRAIN) },
+        )
     );
 
     let result = rapier_context.cast_ray(
