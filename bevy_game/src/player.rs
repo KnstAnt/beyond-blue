@@ -8,7 +8,7 @@ use crate::game::SPEED_EPSILON;
 use crate::ballistics::calc_shot_dir;
 use crate::input::*;
 
-use crate::tank::{NewTank, TankShotData, NewTanksData};
+use crate::tank::{NewTank, NewTanksData, TankShotData};
 use crate::AppState;
 
 pub type PlayerHandle = usize;
@@ -201,30 +201,34 @@ pub fn prep_wheel_input(
     let mut movement = Vec2::ZERO;
 
     if let Some(key_state) = game_control.get_key_state(Actions::Up) {
-        movement -= match key_state {
-            KeyState::JustPressed | KeyState::Pressed => Vec2::Y,
-            _ => Vec2::ZERO,
+        movement -= if key_state.just_pressed || key_state.pressed {
+            Vec2::Y
+        } else {
+            Vec2::ZERO
         }
     }
 
     if let Some(key_state) = game_control.get_key_state(Actions::Down) {
-        movement += match key_state {
-            KeyState::JustPressed | KeyState::Pressed => Vec2::Y,
-            _ => Vec2::ZERO,
+        movement += if key_state.just_pressed || key_state.pressed {
+            Vec2::Y
+        } else {
+            Vec2::ZERO
         }
     }
 
     if let Some(key_state) = game_control.get_key_state(Actions::Left) {
-        movement -= match key_state {
-            KeyState::JustPressed | KeyState::Pressed => Vec2::X,
-            _ => Vec2::ZERO,
+        movement -= if key_state.just_pressed || key_state.pressed {
+            Vec2::X
+        } else {
+            Vec2::ZERO
         }
     }
 
     if let Some(key_state) = game_control.get_key_state(Actions::Right) {
-        movement += match key_state {
-            KeyState::JustPressed | KeyState::Pressed => Vec2::X,
-            _ => Vec2::ZERO,
+        movement += if key_state.just_pressed || key_state.pressed {
+            Vec2::X
+        } else {
+            Vec2::ZERO
         }
     }
 
@@ -267,30 +271,34 @@ pub fn prep_turret_input(
     let mut cannon_rotation = 0.;
 
     if let Some(key_state) = game_control.get_key_state(Actions::TurretLeft) {
-        turret_rotation += match key_state {
-            KeyState::JustPressed | KeyState::Pressed => 1.,
-            _ => 0.,
+        turret_rotation += if key_state.just_pressed || key_state.pressed {
+            1.
+        } else {
+            0.
         }
     }
 
     if let Some(key_state) = game_control.get_key_state(Actions::TurretRight) {
-        turret_rotation += match key_state {
-            KeyState::JustPressed | KeyState::Pressed => -1.,
-            _ => 0.,
+        turret_rotation += if key_state.just_pressed || key_state.pressed {
+            -1.
+        } else {
+            0.
         }
     }
 
     if let Some(key_state) = game_control.get_key_state(Actions::CannonUp) {
-        cannon_rotation += match key_state {
-            KeyState::JustPressed | KeyState::Pressed => 1.,
-            _ => 0.,
+        cannon_rotation += if key_state.just_pressed || key_state.pressed {
+            1.
+        } else {
+            0.
         }
     }
 
     if let Some(key_state) = game_control.get_key_state(Actions::CannonDown) {
-        cannon_rotation += match key_state {
-            KeyState::JustPressed | KeyState::Pressed => -1.,
-            _ => 0.,
+        cannon_rotation += if key_state.just_pressed || key_state.pressed {
+            -1.
+        } else {
+            0.
         }
     }
 
@@ -377,22 +385,18 @@ pub fn prep_shot_input(
     let mut new_control: ControlFire = ControlFire::default();
 
     if let Some(key_state) = game_control.get_key_state(Actions::CannonShot) {
-        match key_state {
-            KeyState::JustPressed => {
-                new_control.time = 0.;
-                new_control.is_shot = false;
-            }
-            KeyState::Pressed => {
-                new_control.time = control.time + time.delta_seconds();
-                //                        shot_data.is_shot = false;
-            }
-            KeyState::JustReleased => {
-                new_control.is_shot = true;
-            }
-            _ => {
-                //                        shot_data.time = 0.;
-                //                        shot_data.is_shot = false;
-            }
+        if key_state.just_pressed {
+            new_control.time = 0.;
+            new_control.is_shot = false;
+        }
+
+        if key_state.pressed {
+            new_control.time = control.time + time.delta_seconds();
+        }
+
+        if key_state.just_released {
+            new_control.time = control.time;
+            new_control.is_shot = true;
         }
     }
 
@@ -414,12 +418,12 @@ pub fn process_correct_pos(
         return;
     }
 
- /*    if let Some(center_screen_hit_position) = camera_state.center_screen_hit_position {
-        log::info!("center: {}", center_screen_hit_position);
-    }
-*/
+    /*    if let Some(center_screen_hit_position) = camera_state.center_screen_hit_position {
+            log::info!("center: {}", center_screen_hit_position);
+        }
+    */
     if let Some(key_state) = game_control.get_key_state(Actions::CorrectPos) {
-        if *key_state != KeyState::JustPressed {
+        if !key_state.just_pressed {
             return;
         }
 
@@ -434,17 +438,17 @@ pub fn process_correct_pos(
         } else {
             log::info!("process_correct_pos camera_state error!");
             return;
-        };        
+        };
 
         if query.is_empty() {
             let start_angle = camera_state.pitch; //rng.gen_range(-std::f32::consts::PI..std::f32::consts::PI);
-    
+
             spawn_tank_data.vector.push(NewTank {
                 handle: *local_handles.handles.first().unwrap(),
                 pos: Vec2::new(start_pos.x, start_pos.z),
                 angle: start_angle,
             });
-    
+
             return;
         }
 

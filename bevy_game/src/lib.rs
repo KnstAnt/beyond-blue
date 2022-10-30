@@ -28,6 +28,7 @@ use crate::game::GamePlugin;
 
 
 use bevy::app::App;
+use bevy::app::Plugin;
 
 #[cfg(debug_assertions)]
 //use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};

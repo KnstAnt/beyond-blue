@@ -97,8 +97,6 @@ pub fn create_body(
 
     add_components_to_body(
         body,
-        body_pos,
-        body_angle,
         vehicle_cfg.body_half_size,
         &mut commands,
         CollisionGroups::new(
@@ -243,8 +241,6 @@ pub fn create_body(
 
 fn add_components_to_body(
     body: Entity,
-    pos: Vec3,
-    angle: f32,
     half_size: Vec3,
     commands: &mut Commands,
     collision_groups: CollisionGroups,

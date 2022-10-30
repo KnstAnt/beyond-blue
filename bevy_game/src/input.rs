@@ -47,12 +47,11 @@ fn update_input<T>(
     game_control.process_input(&keyboard_input, &mouse_input);
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone, PartialOrd, Ord)]
-pub enum KeyState {
-    Released,
-    JustPressed,
-    Pressed,
-    JustReleased,
+#[derive(Debug, Default, Eq, PartialEq, Hash, Copy, Clone, PartialOrd, Ord)]
+pub struct KeyState {
+    pub just_pressed: bool,
+    pub pressed: bool,
+    pub just_released: bool,
 }
 
 #[derive(Debug)]
@@ -129,6 +128,7 @@ where
         self.states.get(&name)
     }
 
+    /*
     pub fn get_key_states(&self) -> u16 {
         assert!(self.states.keys().count() < 16);
 
@@ -137,12 +137,25 @@ where
 
         for code in 0u16..16u16 {
             if let Ok(action) = <u16 as TryInto<T>>::try_into(code) {
+                res |= if let Some(key_state) = self.states.get(&action) {
+                    if key_state.just_pressed || key_state.pressed {
+                        1
+                    } else {
+                        0
+                    }
+                } else {
+                    0
+                } << shift;
+                shift += 1;
+            }
+    /*        if let Ok(action) = <u16 as TryInto<T>>::try_into(code) {
                 res |= match self.states.get(&action) {
                     Some(KeyState::JustPressed) | Some(KeyState::Pressed) => 1,
                     Some(_) | None => 0,
                 } << shift;
                 shift += 1;
             }
+          */  
         }
 
         res
@@ -180,48 +193,49 @@ where
             }
         }
     }
-
+*/
     fn process_input(
         &mut self, 
         keyboard_input: &Res<Input<KeyCode>>,
         mouse_input: &Res<Input<MouseButton>>
     ) {
         for (name, actions) in &self.keys {
-            let mut states = vec![];
+            
+            let mut key_state = KeyState::default();
 
             for action in actions.iter() {
   //              log::info!("actions process {:?}", action);
                 if let InputAction::Key(key_code) = action {
+
                     if keyboard_input.just_pressed(*key_code) {
 //                        log::info!("key_code just_pressed {:?}", key_code);
-                        states.push(KeyState::JustPressed);
+                        key_state.just_pressed = true;
                     } else if keyboard_input.pressed(*key_code) {
-                        states.push(KeyState::Pressed);
+                        key_state.pressed = true;
                     } else if keyboard_input.just_released(*key_code) {
-                        states.push(KeyState::JustReleased);
+                        key_state.just_released = true;
                     }
+
                     continue;
                 }
 
                 if let InputAction::Mouse(mouse_button) = action {
 //                    log::info!("mouse_button process {:?}", mouse_button);
-
                     if mouse_input.just_pressed(*mouse_button) {
  //                       log::info!("mouse_button just_pressed {:?}", mouse_button);
-                        states.push(KeyState::JustPressed);                      
+                        key_state.just_pressed = true;                      
                     } else if mouse_input.pressed(*mouse_button) {
-                        states.push(KeyState::Pressed);
+                        key_state.pressed = true;
                     } else if mouse_input.just_released(*mouse_button) {
-                        log::info!("mouse_button just_released {:?}", mouse_button);
-                        states.push(KeyState::JustReleased);
+ //                       log::info!("mouse_button just_released {:?}", mouse_button);
+                        key_state.just_released = true;
                     }
+
                     continue;
                 }                
             }
 
-            states.sort();    
-
-            self.states.insert(name.clone(), *states.last().unwrap_or(&KeyState::Released));
+            self.states.insert(name.clone(), key_state);
         }
     }
 }

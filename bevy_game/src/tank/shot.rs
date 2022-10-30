@@ -54,11 +54,10 @@ pub fn create_player_cannon_shot(
 
     control.is_shot = false;
 
-    let shot_speed = data.shot_speed(control.time);
-    let shot_pos = global_transform.translation();
-    let shot_vel = global_transform.forward() * shot_speed;
+    let pos = global_transform.translation();
+    let vel = global_transform.forward() * data.shot_speed(control.time);
 
-    let out_data = ShotData{is_shot: true, pos: shot_pos, vel: shot_vel, radius: data.radius};
+    let out_data = ShotData{is_shot: true, pos, vel, radius: data.radius};
 
     output.data.push(GameMessage::from(out_data));
 
@@ -69,15 +68,12 @@ pub fn create_player_cannon_shot(
                     sectors: 8,
                     stacks: 8,
                 })),
-
                 material: materials.add(StandardMaterial {
                     base_color: Color::RED,
                     emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
                     ..default()
                 }),
-
-                transform: Transform::from_translation(shot_pos),
-
+                transform: Transform::from_translation(pos),
                 ..default()
             })
             .insert(ShotExplosionData::new(data.shot_live_max_time, data.explosion_force))
@@ -91,7 +87,7 @@ pub fn create_player_cannon_shot(
             .insert(ColliderMassProperties::Density(5.))
             .insert(Ccd::enabled())
             .insert(Velocity {
-                linvel: shot_vel,
+                linvel: vel,
                 angvel: Vec3::ZERO,
             })
             .insert(CollisionGroups::new(
