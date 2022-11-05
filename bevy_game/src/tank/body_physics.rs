@@ -89,10 +89,11 @@ pub fn create_body(
     vehicle_cfg: VehicleConfig,
 //    collision_groups: CollisionGroups,
 //    solver_groups: SolverGroups,
-) -> (Entity, LinkedList<Entity>) {
+) -> (Entity, LinkedList<Entity>, LinkedList<Entity>) {
     let friction_central_wheel = 1.5;
     let friction_outside_wheel = 0.5;
 
+    let mut axles = LinkedList::new();
     let mut wheels = LinkedList::new();
 
     add_components_to_body(
@@ -124,7 +125,8 @@ pub fn create_body(
             vehicle_cfg.offset_y,
             vehicle_cfg.offset_z,
         );
-        wheels.push_back(spawn_attached_wheel(
+
+        let (axle, wheel) = spawn_attached_wheel(
             "RF".to_string(),
             Tag::RightJoint,
             Tag::RightWheel,
@@ -136,12 +138,15 @@ pub fn create_body(
             wheel_collision_group,
             wheel_solver_group,
             &mut commands,
-        ));
+        );
+
+        axles.push_back(axle);
+        wheels.push_back(wheel);
     }
 
     {
         let offset = Vec3::new(vehicle_cfg.offset_x, vehicle_cfg.offset_y, 0.0);
-        wheels.push_back(spawn_attached_wheel(
+        let (axle, wheel) = spawn_attached_wheel(
             "RM".to_string(),
             Tag::RightJoint,
             Tag::RightWheel,
@@ -153,7 +158,10 @@ pub fn create_body(
             wheel_collision_group,
             wheel_solver_group,
             &mut commands,
-        ));
+        );
+
+        axles.push_back(axle);
+        wheels.push_back(wheel);
     }
 
     {
@@ -162,7 +170,7 @@ pub fn create_body(
             vehicle_cfg.offset_y,
             -vehicle_cfg.offset_z,
         );
-        wheels.push_back(spawn_attached_wheel(
+        let (axle, wheel) = spawn_attached_wheel(
             "RF".to_string(),
             Tag::RightJoint,
             Tag::RightWheel,
@@ -174,7 +182,10 @@ pub fn create_body(
             wheel_collision_group,
             wheel_solver_group,
             &mut commands,
-        ));
+        );
+
+        axles.push_back(axle);
+        wheels.push_back(wheel);
     }
 
     {
@@ -183,7 +194,7 @@ pub fn create_body(
             vehicle_cfg.offset_y,
             vehicle_cfg.offset_z,
         );
-        wheels.push_back(spawn_attached_wheel(
+        let (axle, wheel) = spawn_attached_wheel(
             "LF".to_string(),
             Tag::LeftJoint,
             Tag::LeftWheel,
@@ -195,12 +206,15 @@ pub fn create_body(
             wheel_collision_group,
             wheel_solver_group,
             &mut commands,
-        ));
+        );
+
+        axles.push_back(axle);
+        wheels.push_back(wheel);
     }
 
     {
         let offset = Vec3::new(-vehicle_cfg.offset_x, vehicle_cfg.offset_y, 0.0);
-        wheels.push_back(spawn_attached_wheel(
+        let (axle, wheel) = spawn_attached_wheel(
             "LM".to_string(),
             Tag::LeftJoint,
             Tag::LeftWheel,
@@ -212,7 +226,10 @@ pub fn create_body(
             wheel_collision_group,
             wheel_solver_group,
             &mut commands,
-        ));
+        );
+
+        axles.push_back(axle);
+        wheels.push_back(wheel);
     }
 
     {
@@ -221,7 +238,7 @@ pub fn create_body(
             vehicle_cfg.offset_y,
             -vehicle_cfg.offset_z,
         );
-        wheels.push_back(spawn_attached_wheel(
+        let (axle, wheel) = spawn_attached_wheel(
             "LR".to_string(),
             Tag::LeftJoint,
             Tag::LeftWheel,
@@ -233,10 +250,13 @@ pub fn create_body(
             wheel_collision_group,
             wheel_solver_group,
             &mut commands,
-        ));
+        );
+
+        axles.push_back(axle);
+        wheels.push_back(wheel);
     }
 
-    (body, wheels)
+    (body, axles, wheels)
 }
 
 fn add_components_to_body(
@@ -309,7 +329,7 @@ fn spawn_attached_wheel(
     collision_groups: CollisionGroups,
     solver_groups: SolverGroups,
     mut commands: &mut Commands,
-) -> Entity {
+) -> (Entity, Entity) {
     let wheel_offset = Vec3::X * vehicle_cfg.wheel_offset * main_offset.x.signum();
     let axle_pos = body_pos + main_offset;
     let axle = spawn_axle(
@@ -323,7 +343,9 @@ fn spawn_attached_wheel(
 
     let mut anchor1 = main_offset;
     let mut anchor2 = Vec3::ZERO;
-    let _axle_joint = spawn_axle_joint(body, axle, anchor1, anchor2, &mut commands);
+
+    spawn_axle_joint(body, axle, anchor1, anchor2, &mut commands);
+
 
     let wheel_pos = axle_pos + wheel_offset;
     let wheel = spawn_wheel(
@@ -343,7 +365,8 @@ fn spawn_attached_wheel(
 
     anchor1 = wheel_offset;
     anchor2 = Vec3::ZERO;
-    let wheel_joint = spawn_wheel_joint(
+
+    spawn_wheel_joint(
         WheelData {
             tag: wheel_tag,
             movement: None,
@@ -356,7 +379,7 @@ fn spawn_attached_wheel(
     );
 
     //	(axle_joint, wheel_joint, wheel)
-    wheel_joint
+    (axle, wheel)
 }
 
 fn spawn_axle(
@@ -502,9 +525,12 @@ fn spawn_wheel_joint(
 
     //		println!("tank_body_physics spawn_wheel_joint, tag: {:?}", wheel_data.tag);
 
+    let multibody_joint = MultibodyJoint::new(axle, wheel_joint);
+    //setContactsEnabled(enabled: boolean)
+
     commands
         .entity(wheel)
-        .insert(MultibodyJoint::new(axle, wheel_joint))
+        .insert(multibody_joint)
         .insert(wheel_data)
         .id()
 }
@@ -512,16 +538,12 @@ fn spawn_wheel_joint(
 pub fn update_body_moving(
     //	mut commands: Commands,
     mut joint_query: Query<&mut MultibodyJoint>,
-    entity_query: Query<(Entity, &Transform, ChangeTrackers<WheelData>, &WheelData)>,
+    entity_query: Query<(Entity, &Transform, &WheelData), Changed<WheelData>>,
 ) {
     let multipler = 10.;
     let factor = 0.1; //if velosity_left != 0. && velosity_right != 0. { 0.1 } else { 2.0 };
 
-    for (entity, _transform, tracker, wheel_data) in entity_query.iter() {
-        if !tracker.is_changed() {
-            continue;
-        }
-
+    for (entity, _transform, wheel_data) in entity_query.iter() {
         if let Ok(mut joint) = joint_query.get_mut(entity) {
             if let Some(movement) = wheel_data.movement {
                 let velosity_left = (movement.y - movement.x) * multipler;
@@ -578,6 +600,8 @@ pub fn update_body_moving(
                 //			joint.data.set_motor_velocity(JointAxis::AngX, 0., 200.);
                 //			joint.data.set_limits(JointAxis::AngX, [f32::MIN, f32::MAX]);
             }
+        } else {
+            
         }
     }
 }

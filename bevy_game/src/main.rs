@@ -11,6 +11,8 @@ use bevy_game::AplicationPlugin;
 #[tokio::main]
 async fn main() {
 
+    std::env::set_var("RUST_BACKTRACE", "full");
+    
     let mut app = App::new();
 
     app

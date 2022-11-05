@@ -3,12 +3,12 @@ use bevy::prelude::*;
 //use iyes_loopless::prelude::*;
 
 use crate::camera::{CameraState, CameraTarget};
-use crate::game::SPEED_EPSILON;
+use crate::game::{SPEED_EPSILON, GameMessage, NewTankData, OutGameMessages};
 //use crate::matchbox_net::*;
 use crate::ballistics::calc_shot_dir;
 use crate::input::*;
 
-use crate::tank::{NewTank, NewTanksData, TankShotData};
+use crate::tank::{NewTank, NewTanksData, TankShotData, TankEntityes};
 use crate::AppState;
 
 pub type PlayerHandle = usize;
@@ -406,13 +406,16 @@ pub fn prep_shot_input(
 }
 
 pub fn process_correct_pos(
+    mut commands: Commands,
     //    time: Res<Time>,
     local_handles: Res<LocalHandles>,
-    mut query: Query<(&mut Transform, &PlayerData), (With<ControlMove>, Without<CameraTarget>)>,
+    mut player_tank_query: Query<(&mut Transform, &PlayerData, &TankEntityes), (With<ControlMove>, Without<CameraTarget>)>,
+    mut tank_transforms_query: Query<&mut Transform, (With<PlayerData>, Without<CameraTarget>, Without<ControlMove>)>,    
     game_control: Res<GameControl<Actions>>,
     camera_state: ResMut<CameraState>,
     mut camera_target_query: Query<&mut Transform, (With<CameraTarget>, Without<ControlMove>)>,
     mut spawn_tank_data: ResMut<NewTanksData>,
+    mut output: ResMut<OutGameMessages<GameMessage>>,
 ) {
     if local_handles.handles.is_empty() {
         return;
@@ -434,14 +437,38 @@ pub fn process_correct_pos(
         }
 
         let start_pos = if let Some(target) = camera_state.mouse_hit_position {
-            target
+            target + Vec3::Y
         } else {
             log::info!("process_correct_pos camera_state error!");
             return;
         };
 
-        if query.is_empty() {
-            let start_angle = camera_state.pitch; //rng.gen_range(-std::f32::consts::PI..std::f32::consts::PI);
+        let transform = if !player_tank_query.is_empty() {
+            let (mut old_transform, _player, entityes) = player_tank_query.single_mut();
+
+            let old_pos = old_transform.translation;
+            old_transform.translation = start_pos.clone();
+            let delta_pos = start_pos - old_pos;
+
+            for axle in &entityes.axles {
+                if let Ok(mut transform) = tank_transforms_query.get_mut(*axle) {
+                    transform.translation = transform.translation + delta_pos;
+                }
+            }
+        
+            for wheel in &entityes.wheels {
+                if let Ok(mut transform) = tank_transforms_query.get_mut(*wheel) {
+                    transform.translation = transform.translation + delta_pos;
+                }
+            }
+
+  //          move_tank(&mut commands, entityes, old_transform.translation, start_pos);
+
+         //   remove_tank(&mut commands, entityes);
+
+            old_transform.clone()            
+        } else {
+            let start_angle = camera_state.pitch;
 
             spawn_tank_data.vector.push(NewTank {
                 handle: *local_handles.handles.first().unwrap(),
@@ -449,16 +476,12 @@ pub fn process_correct_pos(
                 angle: start_angle,
             });
 
-            return;
-        }
+            Transform::from_translation(start_pos)
+                    .with_rotation(Quat::from_axis_angle(Vec3::Y, start_angle))
+        };
 
-        let (mut position, player) = query.single_mut();
-        assert!(*local_handles.handles.first().unwrap() == player.handle);
-
-        log::info!("process_correct_pos pressed");
-
-        position.translation.x = start_pos.x;
-        position.translation.y = start_pos.y + 1.;
-        position.translation.z = start_pos.z;
+        output
+            .data
+            .push(GameMessage::InitData(NewTankData::from(transform)));
     }
 }

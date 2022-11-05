@@ -32,6 +32,8 @@ pub fn update_body_position_from_net(
     )>,
     mut wheel_data_query: Query<&mut WheelData>,
 ) {
+// TODO
+ /*   
     for (
         global_transform,
         state,
@@ -87,6 +89,8 @@ pub fn update_body_position_from_net(
             }
  //       }
     }
+
+*/
 }
 
 //apply player control

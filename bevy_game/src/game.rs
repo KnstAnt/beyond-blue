@@ -495,8 +495,9 @@ pub fn process_in_raw_message(
     mut in_cannon: ResMut<InMesMap<CannonRotation>>,
     mut in_shot: ResMut<InMesVec<ShotData>>,
     mut in_explosion: ResMut<InMesVec<ExplosionData>>,
-    player_tank_data: Query<&Transform, With<ControlMove>>,
-    query_tank_data: Query<&PlayerData, With<MesState<TankBodyData>>>,
+    player_tank_body_query: Query<&Transform, With<ControlMove>>,
+    mut tank_parts_transforms_query: Query<&mut Transform, (With<PlayerData>, Without<TankEntityes>, Without<ControlMove>)>,
+    mut tank_body_data_query: Query<(&mut Transform, &PlayerData, &mut MesState<TankBodyData>, &TankEntityes), Without<ControlMove>>,
     mut spawn_tank_data: ResMut<NewTanksData>,
     mut output: ResMut<OutGameMessages<GameMessage>>,
     //  from_server: Res<Arc<Mutex<mpsc::Receiver<NetEvent>>>>,
@@ -506,27 +507,50 @@ pub fn process_in_raw_message(
     //    log::info!("net handle_conn_events start");
     'raw_data: for (player, raw_mes) in raw.data.iter() {
         if GameMessage::DataRequest == *raw_mes {
-            if player_tank_data.is_empty() {
+            if player_tank_body_query.is_empty() {
                 log::info!("process_in_raw_message DataRequest: no player tank data!");
                 return;
             }
 
             log::info!("process_in_raw_message DataRequest send tank data");
 
-            let transform = player_tank_data.single();
+            let transform = player_tank_body_query.single();
             output
                 .data
                 .push(GameMessage::InitData(NewTankData::from(*transform)));
         } else if let GameMessage::InitData(data) = raw_mes {
             //           println!( "process_in_raw_message InitData player:{:?}  pos:{:?}  angle:{:?}", player, data.pos, data.angle);
 
-            for exist_player in &query_tank_data {
-                if exist_player.handle == *player {
-                    // tank for player is already spawned
+            for (mut transform, exist_player, mut mess_state, entityes) in tank_body_data_query.iter_mut() {
+                if exist_player.handle == *player { // tank for player is already spawned
+                    
+                    let old_pos = transform.translation;
+                    *transform = Transform::from_matrix(data.matrix);
+                    let delta_pos = transform.translation - old_pos;
+        
+                    for axle in &entityes.axles {
+                        if let Ok(mut transform) = tank_parts_transforms_query.get_mut(*axle) {
+                            transform.translation = transform.translation + delta_pos;
+                        }
+                    }
+                
+                    for wheel in &entityes.wheels {
+                        if let Ok(mut transform) = tank_parts_transforms_query.get_mut(*wheel) {
+                            transform.translation = transform.translation + delta_pos;
+                        }
+                    }
+
+                    mess_state.data.movement = Vec2::ZERO;
+                    mess_state.data.pos.x = transform.translation.x;
+                    mess_state.data.pos.y = transform.translation.y;
+                    mess_state.data.angle = transform.rotation.to_euler(EulerRot::YXZ).0;
+
+                    // remove_tank(&mut commands, entityes);   
                     continue 'raw_data;
                 }
             }
 
+            // spawn new tank
             let transform = Transform::from_matrix(data.matrix);
 
             spawn_tank_data.vector.push(NewTank {
