@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::game::{GameMessage, MesState, OutGameMessages, OutMessageState, MAX_OUT_DELTA_TIME, POS_EPSILON_QRT, ANGLE_EPSILON, OUT_ANGLE_EPSILON, MIN_OUT_DELTA_TIME};
 use crate::network::PingList;
-use crate::player::ControlMove;
+use crate::player::{ControlMove, PlayerData};
 use crate::tank::{TankEntityes, WheelData};
 
-use super::utils::*;
+use super::{utils::*, TankMoveTarget};
 
 #[repr(C)]
 #[derive(Serialize, Deserialize, Component, Debug, Default, Clone, Copy, PartialEq)]
@@ -17,9 +17,15 @@ pub struct Data {
     pub angle: f32,
 }
 
+impl Data {
+    pub fn is_moved(&self) -> bool {
+        return self.movement.x != 0. || self.movement.y != 0. 
+    }
+}
+
 pub fn update_body_position_from_net(
- //   time: Res<Time>,
- //   ping: Res<PingList>,
+    time: Res<Time>,
+    ping: Res<PingList>,
     mut data_query: Query<(
         &GlobalTransform,
         //       ChangeTrackers<State<Message<Data>>>,
@@ -28,12 +34,13 @@ pub fn update_body_position_from_net(
         &mut ExternalForce,
         &mut Sleeping,
         &TankEntityes,
-  //      &PlayerData,
+        &PlayerData,
     )>,
     mut wheel_data_query: Query<&mut WheelData>,
+    mut target_query: Query<&mut Transform, With<TankMoveTarget>>,
 ) {
 // TODO
- /*   
+    
     for (
         global_transform,
         state,
@@ -41,24 +48,57 @@ pub fn update_body_position_from_net(
         mut force,
         mut sleeping,
         entityes,
-   //     player,
+        player,
     ) in data_query.iter_mut()
     {
         let (_scale, rotation, translation) = global_transform.to_scale_rotation_translation();
         let data = state.data;
 
+        //try to compensate the ping delay
+        let (target_angle, target_pos) = if data.is_moved() {
+            let delta_time = (time.seconds_since_startup() - state.time) as f32 + ping.get_time(player.handle)*0.5;
+
+            let angle = if data.movement.x != 0. {
+                normalize(data.angle - data.movement.x*0.1*delta_time)
+            } else {
+                data.angle
+            };
+
+            let pos = Vec3::new(data.pos.x, translation.y, data.pos.y) + if data.movement.y != 0. {
+                let delta_pos = Vec3::new(data.movement.x, 0., data.movement.y)*0.2*delta_time;
+
+                Transform::from_rotation(Quat::from_axis_angle(Vec3::Y, data.angle))
+                .compute_matrix()
+    //            .inverse()
+                .transform_point3(delta_pos)
+            } else {
+                Vec3::ZERO
+            };
+
+            (angle, pos)
+        } else {
+            (data.angle, Vec3::new(data.pos.x, translation.y, data.pos.y))
+        }; 
+
+        if let Ok(mut target_transform) = target_query.get_single_mut() {
+            target_transform.translation = target_pos;
+        }
+
+        log::info!("src_pos:{} src_angle:{} trg_pos:{} trg_angle:{}",
+                        translation, rotation.to_euler(EulerRot::YXZ).0, target_pos, target_angle);
+
         //correct body pos
-        let delta_pos = Vec3::new(data.pos.x - translation.x, 0., data.pos.y - translation.z);
+        let delta_pos = Vec3::new(target_pos.x - translation.x, 0., target_pos.z - translation.z);
 
         //       log::info!("tank mod update_body_position translation.pos {} input.pos{} delta_pos{}",
         //           transform.translation, tank_control_body.pos, delta_pos);
 
-        let length_squared = delta_pos.length_squared();
+        let length_squared = delta_pos.length_squared().min(3.);
         if length_squared > POS_EPSILON_QRT {                      
             force.force = delta_pos * ((1. + length_squared).powf(2.0) - 1.) * 10.;
         }
 
-        let delta_angle = delta_dir(data.angle, rotation.to_euler(EulerRot::YXZ).0);
+        let delta_angle = delta_dir(target_angle, rotation.to_euler(EulerRot::YXZ).0).min(0.1);
         if delta_angle.abs() > ANGLE_EPSILON {        
             let torque = ((1. + delta_angle).powf(2.0) - 1.) * 10.;
             force.torque = rotation.mul_vec3(Vec3::Y * torque);
@@ -89,8 +129,6 @@ pub fn update_body_position_from_net(
             }
  //       }
     }
-
-*/
 }
 
 //apply player control

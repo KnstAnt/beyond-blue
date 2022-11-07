@@ -406,8 +406,8 @@ pub fn prep_shot_input(
 }
 
 pub fn process_correct_pos(
-    mut commands: Commands,
-    //    time: Res<Time>,
+    // mut commands: Commands,
+    // time: Res<Time>,
     local_handles: Res<LocalHandles>,
     mut player_tank_query: Query<(&mut Transform, &PlayerData, &TankEntityes), (With<ControlMove>, Without<CameraTarget>)>,
     mut tank_transforms_query: Query<&mut Transform, (With<PlayerData>, Without<CameraTarget>, Without<ControlMove>)>,    
@@ -447,8 +447,11 @@ pub fn process_correct_pos(
             let (mut old_transform, _player, entityes) = player_tank_query.single_mut();
 
             let old_pos = old_transform.translation;
-            old_transform.translation = start_pos.clone();
+            let old_dir = old_transform.rotation.to_euler(EulerRot::YXZ).0;
             let delta_pos = start_pos - old_pos;
+
+            old_transform.translation = start_pos;
+            old_transform.rotation = Quat::from_axis_angle(Vec3::Y, old_dir);            
 
             for axle in &entityes.axles {
                 if let Ok(mut transform) = tank_transforms_query.get_mut(*axle) {
@@ -463,7 +466,6 @@ pub fn process_correct_pos(
             }
 
   //          move_tank(&mut commands, entityes, old_transform.translation, start_pos);
-
          //   remove_tank(&mut commands, entityes);
 
             old_transform.clone()            

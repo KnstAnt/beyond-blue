@@ -88,6 +88,9 @@ impl Default for NewTanksData {
 
 pub struct TankPlugin;
 
+#[derive(Component, Debug)]
+pub struct TankMoveTarget;
+
 impl Plugin for TankPlugin {
     fn build(&self, app: &mut App) {
         let before_system_set = SystemSet::on_update(AppState::Playing)
@@ -115,7 +118,7 @@ impl Plugin for TankPlugin {
             .with_system(create_player_cannon_shot.after(update_player_cannon_rotation));
 
         app.init_resource::<NewTanksData>()
-            .add_system_set(SystemSet::on_enter(AppState::Loading).with_system(setup))
+            .add_system_set(SystemSet::on_enter(AppState::Playing).with_system(setup))
             .add_system_set_to_stage(CoreStage::PreUpdate, before_system_set)
             .add_system(process_spawn_tanks.run_if(is_create_tanks))
             .add_system_set(ConditionSet::new().run_if(is_create_tanks).into());
@@ -129,9 +132,30 @@ fn is_create_tanks(data: Res<NewTanksData>) -> bool {
 
 fn setup(
     mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     //   asset_server: Res<AssetServer>,
 ) {
     println!("Tank setup");
+
+    commands
+ //   .spawn_bundle((Transform::identity(), GlobalTransform::identity()))
+    .spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::UVSphere {
+            radius: 0.2,
+            sectors: 8,
+            stacks: 8,
+        })),
+
+        material: materials.add(StandardMaterial {
+            base_color: Color::RED,
+            emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
+            ..default()
+        }),
+
+        ..default()
+    })
+        .insert(TankMoveTarget);
 
     //   let _scenes: Vec<HandleUntyped> = asset_server.load_folder("Tank_1/PARTS").unwrap();
 }
