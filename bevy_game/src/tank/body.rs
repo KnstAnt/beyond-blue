@@ -84,8 +84,8 @@ pub fn update_body_position_from_net(
             target_transform.translation = target_pos;
         }
 
-        log::info!("src_pos:{} src_angle:{} trg_pos:{} trg_angle:{}",
-                        translation, rotation.to_euler(EulerRot::YXZ).0, target_pos, target_angle);
+  //      log::info!("src_pos:{} src_angle:{} trg_pos:{} trg_angle:{}",
+  //                      translation, rotation.to_euler(EulerRot::YXZ).0, target_pos, target_angle);
 
         //correct body pos
         let delta_pos = Vec3::new(target_pos.x - translation.x, 0., target_pos.z - translation.z);
