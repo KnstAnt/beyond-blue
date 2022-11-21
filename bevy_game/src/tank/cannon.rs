@@ -4,8 +4,8 @@ use bevy::prelude::Component;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::utils::*;
-use crate::game::{GameMessage, MesState, OutGameMessages, OutMessageState, MAX_OUT_DELTA_TIME, MIN_OUT_DELTA_TIME, OUT_ANGLE_EPSILON, SPEED_EPSILON};
+use crate::utils::*;
+use crate::game::*;
 use crate::network::PingList;
 //use crate::network::PingList;
 use crate::player::{ControlCannon, PlayerData};
@@ -14,7 +14,7 @@ use crate::player::{ControlCannon, PlayerData};
 #[derive(Serialize, Deserialize, Component, Debug, Default, Clone, Copy, PartialEq)]
 pub struct Data {
     pub speed: f32,
-    pub dir: f32,
+    pub angle: f32,
 }
 
 pub fn update_cannon_rotation_from_net(
@@ -24,35 +24,35 @@ pub fn update_cannon_rotation_from_net(
 ) {
     for (mut transform, state, player) in query.iter_mut() {
         let data = state.data;
-        let old_dir = transform.rotation.to_euler(EulerRot::XYZ).0;
+        let old_angle = transform.rotation.to_euler(EulerRot::XYZ).0;
 
-        let mut new_dir = if data.speed != 0. {
+        let mut new_angle = if data.speed != 0. {
             let delta_time = (time.seconds_since_startup() - state.time) as f32 + ping.get_time(player.handle)*0.5;
-            normalize(data.dir + data.speed * delta_time)
+            normalize(data.angle + data.speed * delta_time)
         } else {
-            data.dir
+            data.angle
         };
 
 
-/*        let mut new_dir = calc_dir(
-            data.dir,
-            old_dir,
+/*        let mut new_angle = calc_angle(
+            data.angle,
+            old_angle,
             data.speed,
             ping.get_time(player.handle),
         );
 */
-        if new_dir < -0.7 {
-            new_dir = -0.7;
+        if new_angle < -0.7 {
+            new_angle = -0.7;
         }
 
-        if new_dir > 0.7 {
-            new_dir = 0.7;
+        if new_angle > 0.7 {
+            new_angle = 0.7;
         }
 
-        //         dbg![cross, dot, dot3, move_dir.angle_between(Game_transform.forward())];
+        //         dbg![cross, dot, dot3, move_angle.angle_between(Game_transform.forward())];
 
-        if new_dir != old_dir {
-            transform.rotation = Quat::from_axis_angle(Vec3::X, new_dir);
+        if new_angle != old_angle {
+            transform.rotation = Quat::from_axis_angle(Vec3::X, new_angle);
         }
     }
 }
@@ -71,9 +71,9 @@ pub fn update_player_cannon_rotation(
 
     let (mut transform, control) = query.single_mut();
 
-    let is_moved = control.speed.abs() > SPEED_EPSILON;
+    let is_moved = control.speed.abs() > ANGLE_SPEED_EPSILON;
     let is_changed = (control.speed - out_data_state.old_data.speed).abs() > OUT_ANGLE_EPSILON;
-    let is_started_or_stoped = is_changed && (control.speed.abs() < SPEED_EPSILON || out_data_state.old_data.speed.abs() < SPEED_EPSILON);
+    let is_started_or_stoped = is_changed && (control.speed.abs() < ANGLE_SPEED_EPSILON || out_data_state.old_data.speed.abs() < ANGLE_SPEED_EPSILON);
 
     let mut rotation = 0.;
 
@@ -82,16 +82,16 @@ pub fn update_player_cannon_rotation(
     } 
 
     let rot_speed = 0.3 * PI * rotation;
-    let old_dir = transform.rotation.to_euler(EulerRot::XYZ).0;
-    let new_dir = normalize(old_dir + rot_speed * time.delta_seconds()).max(-0.7).min(0.7);
+    let old_angle = transform.rotation.to_euler(EulerRot::XYZ).0;
+    let new_angle = normalize(old_angle + rot_speed * time.delta_seconds()).max(-0.7).min(0.7);
 
-    transform.rotation = Quat::from_axis_angle(Vec3::X, new_dir);
+    transform.rotation = Quat::from_axis_angle(Vec3::X, new_angle);
 
     if (is_changed && out_data_state.delta_time >= MIN_OUT_DELTA_TIME) || 
         (is_moved && out_data_state.delta_time >= MAX_OUT_DELTA_TIME) ||
         is_started_or_stoped {
         out_data_state.old_data.speed = rot_speed;
-        out_data_state.old_data.dir = new_dir;
+        out_data_state.old_data.angle = new_angle;
 
         output.data.push(GameMessage::from(out_data_state.old_data));
         out_data_state.delta_time = 0.;
@@ -108,16 +108,16 @@ pub fn update_cannon_debug_line(
         let shot_speed = shot_data.shot_speed_delta * shot_action.time + shot_data.shot_speed_min;
 
         let mut pos = global_transform.translation();
-        let mut dir = global_transform.back() * shot_speed;
+        let mut angle = global_transform.back() * shot_speed;
         let delta_time = 0.05;
         let delta_y = -9.81 * delta_time;
 
         while pos.y > -10. {
-            lines.line_colored(pos, pos + dir * delta_time, 0.0, Color::GREEN);
+            lines.line_colored(pos, pos + angle * delta_time, 0.0, Color::GREEN);
 
-            pos += dir * delta_time;
+            pos += angle * delta_time;
 
-            dir = Vec3::new(dir.x, dir.y + delta_y, dir.z);
+            angle = Vec3::new(angle.x, angle.y + delta_y, angle.z);
         }
     }
 }

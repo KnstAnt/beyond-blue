@@ -14,12 +14,15 @@ mod player;
 //mod log_plugin;
 mod camera;
 mod ballistics;
+mod test;
+mod utils;
 
 //use crate::input::InputPlugin;
 use crate::audio::InternalAudioPlugin;
 use crate::loading::LoadingPlugin;
 use crate::menu::MenuPlugin;
 use crate::game::GamePlugin;
+use crate::test::TestPlugin;
 //use crate::network::NetPlugin;
 //use crate::tank::TankPlugin;
 //use crate::player::PlayerPlugin;
@@ -41,15 +44,12 @@ use bevy::prelude::*;
 // Or https://github.com/bevyengine/bevy/blob/main/examples/ecs/state.rs
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum AppState {
-    Loading,    
-
+    Loading,  
     Connecting,
-
     PreparePlaying,
-
     Playing,
-    // Here the menu is drawn and waiting for player interaction
     Menu,
+    Test,
 }
 
 pub struct AplicationPlugin;
@@ -59,6 +59,7 @@ impl Plugin for AplicationPlugin {
         app.add_state(AppState::Loading)
             .add_plugin(LoadingPlugin)
             .add_plugin(MenuPlugin)
+            .add_plugin(TestPlugin)
             .add_plugin(InternalAudioPlugin)
             .add_plugin(GamePlugin);
 

@@ -10,6 +10,7 @@ use bevy_rapier3d::plugin::RapierContext;
 use bevy_rapier3d::prelude::InteractionGroups;
 //use heron::rapier_plugin::PhysicsWorld;
 
+use std::f32::consts::FRAC_PI_2;
 use std::{marker::PhantomData, ops::Mul};
 
 #[derive(Component)]
@@ -47,8 +48,8 @@ impl Default for CameraState {
         Self {
             forward: Vec3::new(0., 0., -1.),
             right: Vec3::new(1., 0., 0.),
-            dist: 20.0,
-            pitch: -1.0,
+            dist: 50.0,
+            pitch: -FRAC_PI_2,//-1.0,
             yaw: 0.,
             rotate_speed_x: 1.,
             rotate_speed_y: 0.3,
@@ -109,7 +110,7 @@ fn setup<T: 'static + Send + Sync>(
 ) {
     commands
         .spawn_bundle(Camera3dBundle {
-            transform: Transform::from_xyz(0., 20.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(0., 50.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..Default::default()
         })
         .insert(MyCamera);
@@ -152,7 +153,7 @@ fn follow_target(
     } / camera_state.screen_dist_x;
 
     if dx.abs() < 1.0 {
-        camera_state.yaw += dx * camera_state.rotate_speed_x * time.delta_seconds();
+ // TODO!!!!!       camera_state.yaw += dx * camera_state.rotate_speed_x * time.delta_seconds();
     }
 
     let dy = if camera_state.cursor_latest.y < camera_state.screen_dist_y {
@@ -164,7 +165,7 @@ fn follow_target(
     } / camera_state.screen_dist_y;
 
     if dy.abs() < 1.0 {
-        camera_state.pitch -= dy * camera_state.rotate_speed_y * time.delta_seconds();
+ // TODO!!!!!           camera_state.pitch -= dy * camera_state.rotate_speed_y * time.delta_seconds(); 
     }
 
     camera_state.pitch = camera_state.pitch.clamp(-1.5, -0.20);

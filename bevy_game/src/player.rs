@@ -3,11 +3,12 @@ use bevy::prelude::*;
 //use iyes_loopless::prelude::*;
 
 use crate::camera::{CameraState, CameraTarget};
-use crate::game::{SPEED_EPSILON, GameMessage, NewTankData, OutGameMessages};
+use crate::game::{ANGLE_SPEED_EPSILON, GameMessage, NewTankData, OutGameMessages};
 //use crate::matchbox_net::*;
 use crate::ballistics::calc_shot_dir;
 use crate::input::*;
 
+use crate::utils::*;
 use crate::tank::{NewTank, NewTanksData, TankShotData, TankEntityes};
 use crate::AppState;
 
@@ -316,13 +317,22 @@ pub fn prep_turret_input(
                 9.8,
             );
 
-            let (_scale, rotation, _pos) = turret_global_transform.to_scale_rotation_translation();
+            let local_dir = dir_to_local(turret_global_transform, &shot_dir);
+
+     /*        let (_scale, rotation, _pos) = turret_global_transform.to_scale_rotation_translation();                
             let local_dir = Transform::from_rotation(rotation)
                 .compute_matrix()
                 .inverse()
                 .transform_point3(shot_dir);
+*/
+            turret_rotation = get_angle_y(&Vec2::new(local_dir.x, local_dir.z));
+
+            if turret_rotation.abs() < ANGLE_SPEED_EPSILON {
+                turret_rotation = 0.;
+            }
+               
             let dot_forward = local_dir.dot(Vec3::NEG_Z);
-            let dot_left = local_dir.dot(Vec3::NEG_X);
+     /*         let dot_left = local_dir.dot(Vec3::NEG_X);
 
             turret_rotation = if dot_forward > 0. {
                 (dot_left * 1.4).min(1.)
@@ -337,22 +347,26 @@ pub fn prep_turret_input(
             if turret_rotation.abs() < SPEED_EPSILON {
                 turret_rotation = 0.;
             }
+*/
 
-            let (_scale, rotation, _pos) = cannon_global_transform.to_scale_rotation_translation();
+            let local_dir = dir_to_local(cannon_global_transform, &shot_dir);
+
+     /*        let (_scale, rotation, _pos) = cannon_global_transform.to_scale_rotation_translation();
             let local_dir = Transform::from_rotation(rotation)
                 .compute_matrix()
                 .inverse()
                 .transform_point3(shot_dir);
-
+*/
             cannon_rotation = if dot_forward > 0. {
                 (local_dir.dot(Vec3::Y) * 1.4).min(1.)
             } else {
                 0.
             };
 
-            if cannon_rotation.abs() < SPEED_EPSILON {
+            if cannon_rotation.abs() < ANGLE_SPEED_EPSILON {
                 cannon_rotation = 0.;
             }
+            
         }
     }
 
@@ -406,11 +420,11 @@ pub fn prep_shot_input(
 }
 
 pub fn process_correct_pos(
-    // mut commands: Commands,
+    mut commands: Commands,
     // time: Res<Time>,
     local_handles: Res<LocalHandles>,
-    mut player_tank_query: Query<(&mut Transform, &PlayerData, &TankEntityes), (With<ControlMove>, Without<CameraTarget>)>,
-    mut tank_transforms_query: Query<&mut Transform, (With<PlayerData>, Without<CameraTarget>, Without<ControlMove>)>,    
+    player_tank_query: Query<(&Transform, &PlayerData, &TankEntityes), (With<ControlMove>, Without<CameraTarget>)>,
+//    tank_transforms_query: Query<&Transform, (With<PlayerData>, Without<CameraTarget>, Without<ControlMove>)>,    
     game_control: Res<GameControl<Actions>>,
     camera_state: ResMut<CameraState>,
     mut camera_target_query: Query<&mut Transform, (With<CameraTarget>, Without<ControlMove>)>,
@@ -437,38 +451,24 @@ pub fn process_correct_pos(
         }
 
         let start_pos = if let Some(target) = camera_state.mouse_hit_position {
-            target + Vec3::Y
+            target
         } else {
             log::info!("process_correct_pos camera_state error!");
             return;
         };
 
         let transform = if !player_tank_query.is_empty() {
-            let (mut old_transform, _player, entityes) = player_tank_query.single_mut();
+            let (transform, _player, entityes) = player_tank_query.single();
 
-            let old_pos = old_transform.translation;
-            let old_dir = old_transform.rotation.to_euler(EulerRot::YXZ).0;
-            let delta_pos = start_pos - old_pos;
+            let data = crate::tank::TankPlace{
+                angle: transform.rotation.to_euler(EulerRot::YXZ).0,
+                pos: Vec3{x: start_pos.x, y: transform.translation.y + 0.2, z: start_pos.z},
+            };
 
-            old_transform.translation = start_pos;
-            old_transform.rotation = Quat::from_axis_angle(Vec3::Y, old_dir);            
-
-            for axle in &entityes.axles {
-                if let Ok(mut transform) = tank_transforms_query.get_mut(*axle) {
-                    transform.translation = transform.translation + delta_pos;
-                }
-            }
+            commands.entity(entityes.body).insert(data.clone());
         
-            for wheel in &entityes.wheels {
-                if let Ok(mut transform) = tank_transforms_query.get_mut(*wheel) {
-                    transform.translation = transform.translation + delta_pos;
-                }
-            }
-
-  //          move_tank(&mut commands, entityes, old_transform.translation, start_pos);
-         //   remove_tank(&mut commands, entityes);
-
-            old_transform.clone()            
+            Transform::from_translation(data.pos)
+                .with_rotation(Quat::from_axis_angle(Vec3::Y, data.angle))
         } else {
             let start_angle = camera_state.pitch;
 
@@ -479,7 +479,7 @@ pub fn process_correct_pos(
             });
 
             Transform::from_translation(start_pos)
-                    .with_rotation(Quat::from_axis_angle(Vec3::Y, start_angle))
+                .with_rotation(Quat::from_axis_angle(Vec3::Y, start_angle))
         };
 
         output

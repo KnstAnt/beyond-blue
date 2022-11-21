@@ -61,13 +61,15 @@ pub const COLLISION_TRIGGER: u32 = 0b100000;
 pub const COLLISION_ALL: u32 = 0b111111;
 pub const EXCLUDE_TERRAIN: u32 = 0b111110;
 
-pub const MAX_OUT_DELTA_TIME: f32 = 3.;
-pub const MIN_OUT_DELTA_TIME: f32 = 0.5;
+pub const MAX_OUT_DELTA_TIME: f32 = 1.;
+pub const MIN_OUT_DELTA_TIME: f32 = 0.3;
 pub const OUT_ANGLE_EPSILON: f32 = 1.0 * std::f32::consts::PI / 180.;
-pub const ANGLE_EPSILON: f32 = 0.3 * std::f32::consts::PI / 180.;
-pub const SPEED_EPSILON: f32 = 0.3 * std::f32::consts::PI / 180.;
-pub const POS_EPSILON: f32 = 0.1;
+pub const ANGLE_EPSILON: f32 = 1.0 * std::f32::consts::PI / 180.;
+pub const ANGLE_SPEED_EPSILON: f32 = 1.0 * std::f32::consts::PI / 180.;
+pub const POS_EPSILON: f32 = 0.03;
 pub const POS_EPSILON_QRT: f32 = POS_EPSILON * POS_EPSILON;
+pub const VEL_EPSILON: f32 = 0.01;
+pub const VEL_EPSILON_QRT: f32  = VEL_EPSILON * VEL_EPSILON;
 
 #[derive(Debug, Default)]
 pub struct OutMessageState<T>
@@ -379,8 +381,8 @@ pub fn start_game(
     //  let start_pos = Vec3::ZERO;
     //  let start_angle = 0.;
     //.with_translation(Vec3::new(300., 0., -400.))
-    let start_pos = Vec3::new(0., 0., 0.); //Vec3::new(rng.gen_range(-10.0..10.0), 0., rng.gen_range(-10.0..10.0));
-    let start_angle = rng.gen_range(-std::f32::consts::PI..std::f32::consts::PI);
+    let start_pos = Vec3::new(rng.gen_range(-10.0..10.0), 0., rng.gen_range(-10.0..10.0));
+    let start_angle = std::f32::consts::PI;//rng.gen_range(-std::f32::consts::PI..std::f32::consts::PI);
 
     if let Some(pos) = get_pos_on_ground(start_pos, &rapier_context) {
         tank_data.vector.push(NewTank {
@@ -389,7 +391,7 @@ pub fn start_game(
             angle: start_angle,
         });
 
-        if true {
+        if false {
             let mut rng = rand::thread_rng();
             //    let y: f64 = rng.gen(); // generates a float between 0 and 1
 
@@ -489,6 +491,7 @@ fn process_new_handles(
 }
 */
 pub fn process_in_raw_message(
+    mut commands: Commands,
     mut raw: ResMut<InMesMap<GameMessage>>,
     mut in_body: ResMut<InMesMap<TankBodyData>>,
     mut in_turret: ResMut<InMesMap<TurretRotation>>,
@@ -496,7 +499,7 @@ pub fn process_in_raw_message(
     mut in_shot: ResMut<InMesVec<ShotData>>,
     mut in_explosion: ResMut<InMesVec<ExplosionData>>,
     player_tank_body_query: Query<&Transform, With<ControlMove>>,
-    mut tank_parts_transforms_query: Query<&mut Transform, (With<PlayerData>, Without<TankEntityes>, Without<ControlMove>)>,
+ //   mut tank_parts_transforms_query: Query<&mut Transform, (With<PlayerData>, Without<TankEntityes>, Without<ControlMove>)>,
     mut tank_body_data_query: Query<(&mut Transform, &PlayerData, &mut MesState<TankBodyData>, &TankEntityes), Without<ControlMove>>,
     mut spawn_tank_data: ResMut<NewTanksData>,
     mut output: ResMut<OutGameMessages<GameMessage>>,
@@ -521,10 +524,20 @@ pub fn process_in_raw_message(
         } else if let GameMessage::InitData(data) = raw_mes {
             //           println!( "process_in_raw_message InitData player:{:?}  pos:{:?}  angle:{:?}", player, data.pos, data.angle);
 
-            for (mut transform, exist_player, mut mess_state, entityes) in tank_body_data_query.iter_mut() {
+            for (transform, exist_player, mut mess_state, entityes) in tank_body_data_query.iter_mut() {
                 if exist_player.handle == *player { // tank for player is already spawned
                     
-                    let old_pos = transform.translation;
+                    let new_transform = Transform::from_matrix(data.matrix);
+
+                    let data = crate::tank::TankPlace{
+                        angle: transform.rotation.to_euler(EulerRot::YXZ).0,
+                        pos: new_transform.translation,
+                    };
+        
+                    commands.entity(entityes.body).insert(data.clone());
+
+                        
+    /*                 let old_pos = transform.translation;
                     *transform = Transform::from_matrix(data.matrix);
                     let delta_pos = transform.translation - old_pos;
         
@@ -539,11 +552,11 @@ pub fn process_in_raw_message(
                             transform.translation = transform.translation + delta_pos;
                         }
                     }
-
+*/
                     mess_state.data.movement = Vec2::ZERO;
-                    mess_state.data.pos.x = transform.translation.x;
-                    mess_state.data.pos.y = transform.translation.y;
-                    mess_state.data.angle = transform.rotation.to_euler(EulerRot::YXZ).0;
+                    mess_state.data.pos.x = new_transform.translation.x;
+                    mess_state.data.pos.y = new_transform.translation.z;
+                    mess_state.data.angle = new_transform.rotation.to_euler(EulerRot::YXZ).0;
 
                     // remove_tank(&mut commands, entityes);   
                     continue 'raw_data;
@@ -678,6 +691,7 @@ pub fn set_network_control(
                 movement: Vec2::ZERO,
                 pos,
                 angle,
+                vel: Vec2::ZERO,
             },
             time: 0.,
         });

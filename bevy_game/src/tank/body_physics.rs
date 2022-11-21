@@ -89,12 +89,12 @@ pub fn create_body(
     vehicle_cfg: VehicleConfig,
 //    collision_groups: CollisionGroups,
 //    solver_groups: SolverGroups,
-) -> (Entity, LinkedList<Entity>, LinkedList<Entity>) {
+) -> (Entity, Vec<Entity>, Vec<Entity>) {
     let friction_central_wheel = 1.5;
     let friction_outside_wheel = 0.5;
 
-    let mut axles = LinkedList::new();
-    let mut wheels = LinkedList::new();
+    let mut axles = Vec::new();
+    let mut wheels = Vec::new();
 
     add_components_to_body(
         body,
@@ -140,8 +140,8 @@ pub fn create_body(
             &mut commands,
         );
 
-        axles.push_back(axle);
-        wheels.push_back(wheel);
+        axles.push(axle);
+        wheels.push(wheel);
     }
 
     {
@@ -160,8 +160,8 @@ pub fn create_body(
             &mut commands,
         );
 
-        axles.push_back(axle);
-        wheels.push_back(wheel);
+        axles.push(axle);
+        wheels.push(wheel);
     }
 
     {
@@ -184,8 +184,8 @@ pub fn create_body(
             &mut commands,
         );
 
-        axles.push_back(axle);
-        wheels.push_back(wheel);
+        axles.push(axle);
+        wheels.push(wheel);
     }
 
     {
@@ -208,8 +208,8 @@ pub fn create_body(
             &mut commands,
         );
 
-        axles.push_back(axle);
-        wheels.push_back(wheel);
+        axles.push(axle);
+        wheels.push(wheel);
     }
 
     {
@@ -228,8 +228,8 @@ pub fn create_body(
             &mut commands,
         );
 
-        axles.push_back(axle);
-        wheels.push_back(wheel);
+        axles.push(axle);
+        wheels.push(wheel);
     }
 
     {
@@ -252,8 +252,8 @@ pub fn create_body(
             &mut commands,
         );
 
-        axles.push_back(axle);
-        wheels.push_back(wheel);
+        axles.push(axle);
+        wheels.push(wheel);
     }
 
     (body, axles, wheels)
@@ -297,6 +297,10 @@ fn add_components_to_body(
         .insert(ExternalImpulse {
             impulse: Vec3::new(0.0, 0.0, 0.0),
             torque_impulse: Vec3::new(0.0, 0.0, 0.0),
+        })
+        .insert(Velocity {
+            linvel: Vec3::ZERO,
+            angvel: Vec3::ZERO,
         })
         //		.insert(ColliderDebugRender::default())
         .insert(NameComponent {

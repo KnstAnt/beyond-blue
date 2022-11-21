@@ -8,6 +8,7 @@ use std::{collections::LinkedList, f32::consts::PI};
 
 use crate::loading::ModelAssets;
 use crate::player::PlayerData;
+use crate::utils::*;
 use crate::{
     game::{set_network_control, set_player_control, MesState},
     menu::is_play_online,
@@ -21,7 +22,6 @@ mod body_physics;
 mod cannon;
 mod shot;
 mod turret;
-pub(crate) mod utils;
 
 use body::*;
 use body_physics::*;
@@ -64,9 +64,29 @@ pub struct TankEntityes {
     pub turret: Entity,
     pub cannon: Entity,
     pub fire_point: Entity,
-    pub axles: LinkedList<Entity>,
-    pub wheels: LinkedList<Entity>,
+    pub axles: Vec<Entity>,
+    pub wheels: Vec<Entity>,
 }
+
+#[derive(Component, Debug, Clone)]
+pub struct TankShift {
+    pub pos: Vec3,
+    pub angle: f32,
+    pub time: f32,
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct TankPlace {
+    pub pos: Vec3,
+    pub angle: f32,
+}
+/* 
+impl TankEntityes {
+    fn get_axles(&self) -> [Entity] {
+        self.axles.try_into().unwrap()
+    }
+}
+*/
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 pub struct NewTank {
@@ -90,6 +110,9 @@ pub struct TankPlugin;
 
 #[derive(Component, Debug)]
 pub struct TankMoveTarget;
+
+#[derive(Component, Debug)]
+pub struct TankLastPos;
 
 impl Plugin for TankPlugin {
     fn build(&self, app: &mut App) {
@@ -117,9 +140,17 @@ impl Plugin for TankPlugin {
             .with_system(update_cannon_debug_line.after(update_player_cannon_rotation))
             .with_system(create_player_cannon_shot.after(update_player_cannon_rotation));
 
+            let after_system_set = SystemSet::on_update(AppState::Playing)
+            .with_system(tank_place)            
+            .with_system(tank_shift);
+
+
         app.init_resource::<NewTanksData>()
             .add_system_set(SystemSet::on_enter(AppState::Playing).with_system(setup))
             .add_system_set_to_stage(CoreStage::PreUpdate, before_system_set)
+            .add_system_set_to_stage(CoreStage::PostUpdate, after_system_set)
+    //        .add_system_set(SystemSet::on_update(AppState::Playing).with_system(tank_place).before(tank_shift))            
+     //       .add_system_set(SystemSet::on_update(AppState::Playing).with_system(tank_shift).after(tank_place))
             .add_system(process_spawn_tanks.run_if(is_create_tanks))
             .add_system_set(ConditionSet::new().run_if(is_create_tanks).into());
     }
@@ -141,10 +172,17 @@ fn setup(
     commands
  //   .spawn_bundle((Transform::identity(), GlobalTransform::identity()))
     .spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::UVSphere {
+   /*     mesh: meshes.add(Mesh::from(shape::UVSphere {
             radius: 0.2,
             sectors: 8,
             stacks: 8,
+        })),
+*/
+        mesh: meshes.add(Mesh::from(shape::Capsule {
+            radius: 0.1,
+            rings: 8,
+            depth: 2.,
+            ..Default::default()
         })),
 
         material: materials.add(StandardMaterial {
@@ -156,6 +194,33 @@ fn setup(
         ..default()
     })
         .insert(TankMoveTarget);
+
+
+        commands
+        //   .spawn_bundle((Transform::identity(), GlobalTransform::identity()))
+           .spawn_bundle(PbrBundle {
+          /*     mesh: meshes.add(Mesh::from(shape::UVSphere {
+                   radius: 0.2,
+                   sectors: 8,
+                   stacks: 8,
+               })),
+       */
+               mesh: meshes.add(Mesh::from(shape::Capsule {
+                   radius: 0.1,
+                   rings: 8,
+                   depth: 2.,
+                   ..Default::default()
+               })),
+       
+               material: materials.add(StandardMaterial {
+                   base_color: Color::RED,
+                   emissive: Color::rgba_linear(0.0, 100.0, 0.0, 0.0),
+                   ..default()
+               }),
+       
+               ..default()
+           })
+               .insert(TankLastPos);
 
     //   let _scenes: Vec<HandleUntyped> = asset_server.load_folder("Tank_1/PARTS").unwrap();
 }
@@ -432,99 +497,96 @@ fn create_tank(
     data
 }
 
-/* 
-pub fn move_tank(
-    commands: &mut Commands, 
-    entityes: &TankEntityes, 
-    old_pos: Vec3, 
-    new_pos: Vec3
+ 
+pub fn tank_shift(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut data_query: Query<(&TankEntityes, 
+        &mut TankShift,
+        &mut Velocity,        
+        &mut ExternalForce,), 
+        Without<TankPlace>>,
+    mut transforms_query: Query<&mut Transform, With<PlayerData>>,  
 ) {
-    let transform = Transform::from_translation(old_pos);
+   // log::info!("tank_shift begin");
+    for (entityes, mut data, mut _vel, mut _force) in data_query.iter_mut() {
+        log::info!("tank_shift begin");
 
-    let bundle = TransformBundle {
-        local: transform,
-        global: GlobalTransform::identity(),
-    };
+        if let Ok(mut transform) = transforms_query.get_mut(entityes.body) {
+            let old_pos = transform.translation;
+    //        let old_angle = get_angle_y(&transform.rotation);
+            let delta_pos = (data.pos - old_pos) * 
+            if data.time > 0. { 
+                data.time.min(time.delta_seconds()) / data.time 
+            } else {
+             1. 
+            };
 
-    let mut tmp = commands.spawn_bundle(bundle);
+            data.time -= time.delta_seconds();
 
-    for axle in &entityes.axles {
-        tmp.add_child(*axle);
-    }
-
-    for wheel in &entityes.wheels {
-        tmp.add_child(*wheel);
-    }
-
-    tmp.add_child(entityes.body);
-
-    tmp.insert(Transform::from_translation(new_pos));
-
-    tmp.despawn();
-}
-
-pub fn remove_tank(commands: &mut Commands, entityes: &TankEntityes) {
-    {
-        commands.entity(entityes.body).remove::<TankEntityes>();
-        commands.entity(entityes.body).remove::<ControlMove>();
-        //       commands.entity(entityes.body).remove::<Collider>();
-        //        commands.entity(entityes.body).remove::<MultibodyJoint>();
-        //      commands.entity(entityes.body).despawn_recursive();
-
-        for wheel in &entityes.wheels {
-            commands.entity(*wheel).remove::<WheelData>();
-            //            commands.entity(*wheel).remove::<Collider>();
-            //         commands.entity(*wheel).remove::<MultibodyJoint>();
-            //            commands.entity(*wheel).despawn_recursive();
-        }
-
-        for axle in &entityes.axles {
-            //           commands.entity(*axle).remove::<Collider>();
-            //           commands.entity(*axle).remove::<MultibodyJoint>();
-            commands.entity(*axle).despawn_recursive();
-        }
-    }
-
-    /*    let bundle = TransformBundle {
-            local: Transform::identity(),
-            global: GlobalTransform::identity(),
-        };
-
-
-        let mut tmp = &commands
-            .spawn_bundle(bundle);
-
+            transform.translation = transform.translation + delta_pos;
+            transform.rotation = set_angle_y(data.angle);      
+            
             for axle in &entityes.axles {
-                *tmp.add_child(*axle);
+                if let Ok(mut transform) = transforms_query.get_mut(*axle) {
+                    transform.translation = transform.translation + delta_pos;
+                }
             }
 
             for wheel in &entityes.wheels {
-                *tmp.add_child(*wheel);
+                if let Ok(mut transform) = transforms_query.get_mut(*wheel) {
+                    transform.translation = transform.translation + delta_pos;
+                }
+            }
+        }
+
+        if data.time <= 0. { 
+            commands.entity(entityes.body).remove::<TankShift>();
+        }
+    }
+}
+
+pub fn tank_place(
+    mut commands: Commands,
+    mut data_query: Query<(
+        &TankEntityes, 
+        &TankPlace,
+        &mut Velocity,        
+        &mut ExternalForce,)>,
+    mut transforms_query: Query<&mut Transform, With<PlayerData>>,  
+) {
+  //  log::info!("tank_place begin");
+
+    for (entityes, data, mut vel, mut force) in data_query.iter_mut() {
+        log::info!("tank_place begin");
+        if let Ok(mut transform) = transforms_query.get_mut(entityes.body) {
+            vel.linvel = Vec3::ZERO;
+            vel.angvel = Vec3::ZERO;
+            force.force = Vec3::ZERO;
+            force.torque = Vec3::ZERO;
+
+            let old_pos = transform.translation;
+            let old_angle = transform.rotation.to_euler(EulerRot::YXZ).0;
+            let delta_pos = data.pos - old_pos;
+
+            transform.translation = data.pos;
+            transform.rotation = Quat::from_axis_angle(Vec3::Y, data.angle);    
+            
+            for axle in &entityes.axles {
+                if let Ok(mut transform) = transforms_query.get_mut(*axle) {
+                    transform.translation = transform.translation + delta_pos;
+                }
             }
 
-            *tmp.add_child(entityes.body);
+            for wheel in &entityes.wheels {
+                if let Ok(mut transform) = transforms_query.get_mut(*wheel) {
+                    transform.translation = transform.translation + delta_pos;
+                }
+            }
+        }
 
-            *tmp.despawn_recursive();
-    */
-    /*
-                        for axle in &entityes.axles {
-                            commands.entity(*axle).remove::<MultibodyJoint>();
-                            commands.entity(*axle).remove::<Collider>();
-    //                        commands.entity(*axle).despawn_recursive();
-                        }
-
-                        for wheel in &entityes.wheels {
-                            commands.entity(*wheel).remove::<MultibodyJoint>();
-                            commands.entity(*wheel).remove::<Collider>();
-    //                        commands.entity(*wheel).despawn_recursive();
-                        }
-                  //      commands.entity(entityes.turret).despawn_recursive();
-                   //     commands.entity(entityes.cannon).despawn_recursive();
-                   //     commands.entity(entityes.fire_point).despawn_recursive();
-                        commands.entity(entityes.body).remove::<TankEntityes>();
-                        commands.entity(entityes.body).remove::<Collider>();
-                        commands.entity(entityes.body).despawn_recursive();
-
-    */                    
+        commands.entity(entityes.body).remove::<TankPlace>();
+        commands.entity(entityes.body).remove::<TankShift>();
+    }
 }
-*/
+

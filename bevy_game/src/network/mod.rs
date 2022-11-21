@@ -170,7 +170,7 @@ pub fn handle_conn_events(
 //                    log::info!("handle_conn_events Pong id:{:?}", id);   
                     ping.receive_pong(id, handle, time.seconds_since_startup());
                 } else if let NetMessage::GameData(data) = mess {
-                    log::info!("handle_conn_events {:?}", data.clone());
+ //                   log::info!("handle_conn_events {:?}", data.clone());
                     in_mess.data.insert(handle, data);
                 }
             },
@@ -186,7 +186,7 @@ fn send_out(
     if output.is_changed() {
 
         for mess in output.data.drain(0..) {
-            log::info!("send_out {:?}", mess.clone());
+ //           log::info!("send_out {:?}", mess.clone());
             let res = to_server.try_send(NetMessage::GameData(mess));
         }
 

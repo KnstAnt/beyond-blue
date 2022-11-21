@@ -28,6 +28,9 @@ pub struct StartLocalButton;
 pub struct StartNetButton;
 
 #[derive(Component)]
+pub struct StartTestButton;
+
+#[derive(Component)]
 pub struct ExitButton;
 
 
@@ -37,6 +40,7 @@ pub enum MenuState {
     None,
     Local,
     Network,
+    Test,
 }
 
 struct ButtonColors {
@@ -79,6 +83,7 @@ impl Plugin for MenuPlugin {
                 .with_system(obr_buttons_visual)
                 .with_system(start_local_game.run_if(on_buttons_action::<StartLocalButton>))  
                 .with_system(start_net_game.run_if(on_buttons_action::<StartNetButton>))          
+                .with_system(start_test.run_if(on_buttons_action::<StartTestButton>))       
                 .with_system(exit_system.run_if(on_buttons_action::<ExitButton>)))
             .add_system_set(SystemSet::on_exit(AppState::Menu).with_system(cleanup_system::<MenuClose>))
             .add_system_set(
@@ -150,6 +155,19 @@ fn setup_menu(
         .with_children(|btn| {
             btn.spawn_bundle(TextBundle {
                 text: Text::from_section("Start Network Game", title_style.clone()),
+                ..Default::default()
+            });
+        });
+
+        menu.spawn_bundle(ButtonBundle {
+            style: button_style.clone(),
+            color: button_colors.normal,
+            ..Default::default()
+        })
+        .insert(StartTestButton)
+        .with_children(|btn| {
+            btn.spawn_bundle(TextBundle {
+                text: Text::from_section("Start Tests", title_style.clone()),
                 ..Default::default()
             });
         });
@@ -259,6 +277,12 @@ fn start_net_game(
     mut menu_data: ResMut<MenuData>,) {
         menu_data.state = MenuState::Network;
         app_state.replace(AppState::Connecting).unwrap();
+}
+fn start_test(
+    mut app_state: ResMut<State<AppState>>,
+    mut menu_data: ResMut<MenuData>,) {
+        menu_data.state = MenuState::Test;
+        app_state.replace(AppState::Test).unwrap();
 }
 
 fn exit_system(mut exit: EventWriter<AppExit>) {
