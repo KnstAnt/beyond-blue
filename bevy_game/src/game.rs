@@ -71,6 +71,7 @@ pub const POS_EPSILON_QRT: f32 = POS_EPSILON * POS_EPSILON;
 pub const VEL_EPSILON: f32 = 0.01;
 pub const VEL_EPSILON_QRT: f32  = VEL_EPSILON * VEL_EPSILON;
 
+
 #[derive(Debug, Default)]
 pub struct OutMessageState<T>
 //where T: 'static + Serialize + Deserialize + DeserializeOwned + Default + Component + PartialEq,
@@ -181,7 +182,7 @@ impl Plugin for GamePlugin {
         app.add_plugin(DebugLinesPlugin::with_depth_test(true))
             .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
             //            .add_plugin(RapierPhysicsPlugin::<&CustomFilterTag>::default())
-                        .add_plugin(RapierDebugRenderPlugin::default())
+            //            .add_plugin(RapierDebugRenderPlugin::default())
             .add_plugin(CameraPlugin::<TempForCamera>::default())
             .add_plugin(TerrainPlugin)
             .add_plugin(PlayerPlugin)
@@ -381,28 +382,29 @@ pub fn start_game(
     //  let start_pos = Vec3::ZERO;
     //  let start_angle = 0.;
     //.with_translation(Vec3::new(300., 0., -400.))
-    let start_pos = Vec3::new(rng.gen_range(-10.0..10.0), 0., rng.gen_range(-10.0..10.0));
-    let start_angle = std::f32::consts::PI;//rng.gen_range(-std::f32::consts::PI..std::f32::consts::PI);
+    let ground_translation = Vec3::new(50., 0., -50.);
+    let start_pos = Vec3::new(rng.gen_range(-10.0..10.0), 0., rng.gen_range(-10.0..10.0)) + ground_translation;
+    let start_angle = rng.gen_range(-std::f32::consts::PI..std::f32::consts::PI);
 
     if let Some(pos) = get_pos_on_ground(start_pos, &rapier_context) {
         tank_data.vector.push(NewTank {
             handle,
-            pos: Vec2::new(pos.x, pos.y),
+            pos: Vec2::new(pos.x, pos.z),
             angle: start_angle,
         });
 
-        if false {
+        if true {
             let mut rng = rand::thread_rng();
             //    let y: f64 = rng.gen(); // generates a float between 0 and 1
 
             // Spawn obstacles
-            let delta = 5.;
+            let delta = 25.;
             let pos_min_x = start_pos.x - delta;
             let pos_max_x = start_pos.x + delta;
             let pos_min_z = start_pos.z - delta;
             let pos_max_z = start_pos.z + delta;
 
-            let qnt = (delta * delta * 10.) as usize;
+            let qnt = (delta * delta * 1.) as usize;
 
             for i in 0..qnt {
                 let pos_x = rng.gen_range(pos_min_x..pos_max_x);
@@ -689,9 +691,12 @@ pub fn set_network_control(
         .insert(MesState::<TankBodyData> {
             data: TankBodyData {
                 movement: Vec2::ZERO,
+                delta_time_linear: 0,
+                delta_time_angular: 0,
                 pos,
                 angle,
-                vel: Vec2::ZERO,
+                linvel: Vec2::ZERO,
+                angvel: 0.,
             },
             time: 0.,
         });

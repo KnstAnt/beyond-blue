@@ -28,9 +28,12 @@ fn process_tests(mut app_state: ResMut<State<AppState>>) {
 fn test_utils_dir() {
     let data = crate::tank::TankBodyData {
         movement: Vec2::new(0., 0.),
+        delta_time_linear: 0,
+        delta_time_angular: 0,
         pos: Vec2::new(1., 0.5),
         angle: 0.,
-        vel: Vec2::new(0., -1.),
+        linvel: Vec2::new(0., -1.),
+        angvel: 0.,
     };
 
     let vel = Velocity {
@@ -169,9 +172,12 @@ fn calc_angle() {
 fn calc_forse() {
     let data = crate::tank::TankBodyData {
         movement: Vec2::new(0., 0.),
+        delta_time_linear: 0,
+        delta_time_angular: 0,
         pos: Vec2::new(1., 0.5),
         angle: 0.,
-        vel: Vec2::new(0., -1.),
+        linvel: Vec2::new(0., -1.),
+        angvel: 0.,
     };
 
     let vel = Velocity {
@@ -183,17 +189,17 @@ fn calc_forse() {
 
     let delta_time = 0.5;
 
-    let current_net_pos = data.pos + data.vel * delta_time;
+    let current_net_pos = data.pos + data.linvel * delta_time;
 
     let extr_time = 2.0;
 
-    let mut extr_net_pos = v2_3(current_net_pos + data.vel * extr_time);
+    let mut extr_net_pos = v2_3(current_net_pos + data.linvel * extr_time);
     extr_net_pos.y = transform.translation.y;
 
     let delta_pos = extr_net_pos - transform.translation;
     let local_delta_pos = dir_to_local(&transform, &delta_pos);
 
-    let delta_vel = v2_3(data.vel) - vel.linvel;
+    let delta_vel = v2_3(data.linvel) - vel.linvel;
     let local_delta_vel = dir_to_local(&transform, &delta_vel);
 
     let force_coorection_value = local_delta_vel.z*local_delta_pos.z;
@@ -221,7 +227,7 @@ fn calc_forse() {
 
     let mov_mult = -data.movement.x*0.2*delta_time;
 
-    let angle = normalize(data.angle + vel_mult + pos_mult + mov_mult);
+    let angle = normalize_angle(data.angle + vel_mult + pos_mult + mov_mult);
 
     log::info!("data.angle:{} local_delta_vel.x:{} extr_net_pos.x:{} translation.x:{} local_delta_pos.x:{} data.movement.x:{} vel_mult:{}, pos_mult:{}, mov_mult:{}, angle:{} current:{}", 
     data.angle, local_delta_vel.x, extr_net_pos.x, transform.translation.x, local_delta_pos.x, data.movement.x, vel_mult, pos_mult, mov_mult, angle, get_angle_y(&transform.rotation));

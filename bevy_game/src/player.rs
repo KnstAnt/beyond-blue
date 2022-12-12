@@ -3,13 +3,13 @@ use bevy::prelude::*;
 //use iyes_loopless::prelude::*;
 
 use crate::camera::{CameraState, CameraTarget};
-use crate::game::{ANGLE_SPEED_EPSILON, GameMessage, NewTankData, OutGameMessages};
+use crate::game::{GameMessage, NewTankData, OutGameMessages, ANGLE_SPEED_EPSILON};
 //use crate::matchbox_net::*;
 use crate::ballistics::calc_shot_dir;
 use crate::input::*;
 
+use crate::tank::{NewTank, NewTanksData, TankEntityes, TankShotData};
 use crate::utils::*;
-use crate::tank::{NewTank, NewTanksData, TankShotData, TankEntityes};
 use crate::AppState;
 
 pub type PlayerHandle = usize;
@@ -39,6 +39,8 @@ pub struct ControlFire {
 #[derive(Component, Copy, Clone, PartialEq, Debug, Default)]
 pub struct ControlMove {
     pub movement: Vec2,
+    pub time_linear: f64,
+    pub time_angular: f64,
 }
 
 #[derive(Component, Copy, Clone, PartialEq, Debug, Default)]
@@ -63,7 +65,8 @@ pub enum Actions {
     CannonUp,
     CannonDown,
     CannonShot,
-    CorrectPos,
+    CorrectPlayerTankPos,
+    CorrectCameraTargetPos,
 }
 
 unsafe impl Send for Actions {}
@@ -177,7 +180,8 @@ fn setup(mut commands: Commands) {
     game_control.add_key_action(Actions::CannonShot, KeyCode::Space);
     game_control.add_mouse_action(Actions::CannonShot, MouseButton::Left);
 
-    game_control.add_key_action(Actions::CorrectPos, KeyCode::Delete);
+    game_control.add_key_action(Actions::CorrectPlayerTankPos, KeyCode::Delete);
+    game_control.add_key_action(Actions::CorrectCameraTargetPos, KeyCode::Home);
 
     commands.insert_resource(game_control);
     println!("Player setup complete");
@@ -200,9 +204,11 @@ pub fn prep_wheel_input(
     assert!(*local_handles.handles.first().unwrap() == player.handle);
 
     let mut movement = Vec2::ZERO;
-
+    let mut time_linear = 0.;
+    let mut time_angular = 0.;
     if let Some(key_state) = game_control.get_key_state(Actions::Up) {
         movement -= if key_state.just_pressed || key_state.pressed {
+            time_linear = key_state.get_time();
             Vec2::Y
         } else {
             Vec2::ZERO
@@ -211,6 +217,7 @@ pub fn prep_wheel_input(
 
     if let Some(key_state) = game_control.get_key_state(Actions::Down) {
         movement += if key_state.just_pressed || key_state.pressed {
+            time_linear = key_state.get_time().max(time_linear);
             Vec2::Y
         } else {
             Vec2::ZERO
@@ -219,6 +226,7 @@ pub fn prep_wheel_input(
 
     if let Some(key_state) = game_control.get_key_state(Actions::Left) {
         movement -= if key_state.just_pressed || key_state.pressed {
+            time_angular = key_state.get_time();
             Vec2::X
         } else {
             Vec2::ZERO
@@ -227,14 +235,20 @@ pub fn prep_wheel_input(
 
     if let Some(key_state) = game_control.get_key_state(Actions::Right) {
         movement += if key_state.just_pressed || key_state.pressed {
+            time_angular = key_state.get_time().max(time_angular);
             Vec2::X
         } else {
             Vec2::ZERO
         }
     }
 
-    if control.movement != movement {
+    if control.movement != movement
+        || control.time_linear != time_linear
+        || control.time_angular != time_angular
+    {
         control.movement = movement;
+        control.time_linear = time_linear;
+        control.time_angular = time_angular;
     }
 }
 
@@ -319,44 +333,16 @@ pub fn prep_turret_input(
 
             let local_dir = dir_to_local(turret_global_transform, &shot_dir);
 
-     /*        let (_scale, rotation, _pos) = turret_global_transform.to_scale_rotation_translation();                
-            let local_dir = Transform::from_rotation(rotation)
-                .compute_matrix()
-                .inverse()
-                .transform_point3(shot_dir);
-*/
             turret_rotation = get_angle_y(&Vec2::new(local_dir.x, local_dir.z));
 
             if turret_rotation.abs() < ANGLE_SPEED_EPSILON {
                 turret_rotation = 0.;
             }
-               
+
             let dot_forward = local_dir.dot(Vec3::NEG_Z);
-     /*         let dot_left = local_dir.dot(Vec3::NEG_X);
-
-            turret_rotation = if dot_forward > 0. {
-                (dot_left * 1.4).min(1.)
-            } else {
-                if dot_left > 0. {
-                    1.
-                } else {
-                    -1.
-                }
-            };
-
-            if turret_rotation.abs() < SPEED_EPSILON {
-                turret_rotation = 0.;
-            }
-*/
 
             let local_dir = dir_to_local(cannon_global_transform, &shot_dir);
 
-     /*        let (_scale, rotation, _pos) = cannon_global_transform.to_scale_rotation_translation();
-            let local_dir = Transform::from_rotation(rotation)
-                .compute_matrix()
-                .inverse()
-                .transform_point3(shot_dir);
-*/
             cannon_rotation = if dot_forward > 0. {
                 (local_dir.dot(Vec3::Y) * 1.4).min(1.)
             } else {
@@ -366,7 +352,6 @@ pub fn prep_turret_input(
             if cannon_rotation.abs() < ANGLE_SPEED_EPSILON {
                 cannon_rotation = 0.;
             }
-            
         }
     }
 
@@ -423,8 +408,11 @@ pub fn process_correct_pos(
     mut commands: Commands,
     // time: Res<Time>,
     local_handles: Res<LocalHandles>,
-    player_tank_query: Query<(&Transform, &PlayerData, &TankEntityes), (With<ControlMove>, Without<CameraTarget>)>,
-//    tank_transforms_query: Query<&Transform, (With<PlayerData>, Without<CameraTarget>, Without<ControlMove>)>,    
+    player_tank_query: Query<
+        (&Transform, &PlayerData, &TankEntityes),
+        (With<ControlMove>, Without<CameraTarget>),
+    >,
+    //    tank_transforms_query: Query<&Transform, (With<PlayerData>, Without<CameraTarget>, Without<ControlMove>)>,
     game_control: Res<GameControl<Actions>>,
     camera_state: ResMut<CameraState>,
     mut camera_target_query: Query<&mut Transform, (With<CameraTarget>, Without<ControlMove>)>,
@@ -439,51 +427,65 @@ pub fn process_correct_pos(
             log::info!("center: {}", center_screen_hit_position);
         }
     */
-    if let Some(key_state) = game_control.get_key_state(Actions::CorrectPos) {
-        if !key_state.just_pressed {
-            return;
-        }
-
-        if let Ok(mut transform) = camera_target_query.get_single_mut() {
-            if let Some(center_screen_hit_position) = camera_state.center_screen_hit_position {
-                transform.translation = center_screen_hit_position;
+    if let Some(key_state) = game_control.get_key_state(Actions::CorrectPlayerTankPos) {
+        if key_state.just_pressed {
+            if let Ok(mut transform) = camera_target_query.get_single_mut() {
+                if let Some(center_screen_hit_position) = camera_state.center_screen_hit_position {
+                    transform.translation = center_screen_hit_position;
+                }
             }
-        }
 
-        let start_pos = if let Some(target) = camera_state.mouse_hit_position {
-            target
-        } else {
-            log::info!("process_correct_pos camera_state error!");
-            return;
-        };
-
-        let transform = if !player_tank_query.is_empty() {
-            let (transform, _player, entityes) = player_tank_query.single();
-
-            let data = crate::tank::TankPlace{
-                angle: transform.rotation.to_euler(EulerRot::YXZ).0,
-                pos: Vec3{x: start_pos.x, y: transform.translation.y + 0.2, z: start_pos.z},
+            let start_pos = if let Some(target) = camera_state.mouse_hit_position {
+                target
+            } else {
+                log::info!("process_correct_pos camera_state error!");
+                return;
             };
 
-            commands.entity(entityes.body).insert(data.clone());
-        
-            Transform::from_translation(data.pos)
-                .with_rotation(Quat::from_axis_angle(Vec3::Y, data.angle))
-        } else {
-            let start_angle = camera_state.pitch;
+            let transform = if !player_tank_query.is_empty() {
+                let (transform, _player, entityes) = player_tank_query.single();
 
-            spawn_tank_data.vector.push(NewTank {
-                handle: *local_handles.handles.first().unwrap(),
-                pos: Vec2::new(start_pos.x, start_pos.z),
-                angle: start_angle,
-            });
+                let data = crate::tank::TankPlace {
+                    angle: transform.rotation.to_euler(EulerRot::YXZ).0,
+                    pos: Vec3 {
+                        x: start_pos.x,
+                        y: start_pos.y + 1.0,
+                        z: start_pos.z,
+                    },
+                };
 
-            Transform::from_translation(start_pos)
-                .with_rotation(Quat::from_axis_angle(Vec3::Y, start_angle))
-        };
+                commands.entity(entityes.body).insert(data.clone());
 
-        output
-            .data
-            .push(GameMessage::InitData(NewTankData::from(transform)));
+                Transform::from_translation(data.pos)
+                    .with_rotation(Quat::from_axis_angle(Vec3::Y, data.angle))
+            } else {
+                let start_angle = camera_state.pitch;
+
+                spawn_tank_data.vector.push(NewTank {
+                    handle: *local_handles.handles.first().unwrap(),
+                    pos: Vec2::new(start_pos.x, start_pos.z),
+                    angle: start_angle,
+                });
+
+                Transform::from_translation(start_pos)
+                    .with_rotation(Quat::from_axis_angle(Vec3::Y, start_angle))
+            };
+
+            output
+                .data
+                .push(GameMessage::InitData(NewTankData::from(transform)));
+        }
+    }
+
+    if let Some(key_state) = game_control.get_key_state(Actions::CorrectCameraTargetPos) {
+        if key_state.just_pressed {
+            if let Ok(mut camera_target_transform) = camera_target_query.get_single_mut() {
+                if !player_tank_query.is_empty() {
+                    let (player_tank_transform, _player, _entityes) = player_tank_query.single();
+
+                    camera_target_transform.translation = player_tank_transform.translation;
+                }
+            }
+        }
     }
 }

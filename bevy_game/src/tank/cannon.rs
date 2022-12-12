@@ -28,7 +28,7 @@ pub fn update_cannon_rotation_from_net(
 
         let mut new_angle = if data.speed != 0. {
             let delta_time = (time.seconds_since_startup() - state.time) as f32 + ping.get_time(player.handle)*0.5;
-            normalize(data.angle + data.speed * delta_time)
+            normalize_angle(data.angle + data.speed * delta_time)
         } else {
             data.angle
         };
@@ -83,7 +83,7 @@ pub fn update_player_cannon_rotation(
 
     let rot_speed = 0.3 * PI * rotation;
     let old_angle = transform.rotation.to_euler(EulerRot::XYZ).0;
-    let new_angle = normalize(old_angle + rot_speed * time.delta_seconds()).max(-0.7).min(0.7);
+    let new_angle = normalize_angle(old_angle + rot_speed * time.delta_seconds()).max(-0.7).min(0.7);
 
     transform.rotation = Quat::from_axis_angle(Vec3::X, new_angle);
 

@@ -101,12 +101,12 @@ fn setup_terrain_assets(
     mut _meshes: ResMut<Assets<Mesh>>,
     mut _materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    if false {
+    if true {
         if let Some(scene_handle) = &terrain_scene.scene_handle {
             println!("terrain setup_terrain_assets");
 
    //             let pos = Vec3::new(-3., 0., 4.);
-                let scale = Vec3::new(0.03, 0.01, 0.03);
+                let scale = Vec3::new(0.1, 0.1, 0.1);
                 if add_terrain_assets(commands, scene_handle, gltfs, gltf_nodes, gltf_meshes, /*meshes, materials, pos, */scale) {
                 terrain_scene.loading_state = TerrainState::CreatePhysics;
                 println!("terrain setup_terrain_assets complete");

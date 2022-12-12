@@ -48,8 +48,8 @@ impl Default for CameraState {
         Self {
             forward: Vec3::new(0., 0., -1.),
             right: Vec3::new(1., 0., 0.),
-            dist: 50.0,
-            pitch: -FRAC_PI_2,//-1.0,
+            dist: 30.0,
+            pitch: -1.0,//-FRAC_PI_2,
             yaw: 0.,
             rotate_speed_x: 1.,
             rotate_speed_y: 0.3,
@@ -153,7 +153,7 @@ fn follow_target(
     } / camera_state.screen_dist_x;
 
     if dx.abs() < 1.0 {
- // TODO!!!!!       camera_state.yaw += dx * camera_state.rotate_speed_x * time.delta_seconds();
+        camera_state.yaw += dx * camera_state.rotate_speed_x * time.delta_seconds();
     }
 
     let dy = if camera_state.cursor_latest.y < camera_state.screen_dist_y {
@@ -165,7 +165,7 @@ fn follow_target(
     } / camera_state.screen_dist_y;
 
     if dy.abs() < 1.0 {
- // TODO!!!!!           camera_state.pitch -= dy * camera_state.rotate_speed_y * time.delta_seconds(); 
+        camera_state.pitch -= dy * camera_state.rotate_speed_y * time.delta_seconds(); 
     }
 
     camera_state.pitch = camera_state.pitch.clamp(-1.5, -0.20);

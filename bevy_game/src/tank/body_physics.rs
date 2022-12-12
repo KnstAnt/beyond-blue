@@ -544,21 +544,21 @@ pub fn update_body_moving(
     mut joint_query: Query<&mut MultibodyJoint>,
     entity_query: Query<(Entity, &Transform, &WheelData), Changed<WheelData>>,
 ) {
-    let multipler = 10.;
-    let factor = 0.1; //if velosity_left != 0. && velosity_right != 0. { 0.1 } else { 2.0 };
+    let damping = 0.1; //if velosity_left != 0. && velosity_right != 0. { 0.1 } else { 2.0 };
 
     for (entity, _transform, wheel_data) in entity_query.iter() {
         if let Ok(mut joint) = joint_query.get_mut(entity) {
             if let Some(movement) = wheel_data.movement {
-                let velosity_left = (movement.y - movement.x) * multipler;
-                let velosity_right = (movement.y + movement.x) * multipler;
+                
+                let velosity_left = movement.y - movement.x;
+                let velosity_right = movement.y + movement.x;
 
                 match wheel_data.tag {
                     Tag::LeftWheel => {
                         joint.data.set_motor_velocity(
                             JointAxis::AngX,
                             velosity_left, //target_vel
-                            factor,        //damping
+                            damping,        //damping
                         );
                         //			joint.data.set_motor_velocity(JointAxis::AngX, velosity_left, factor);
                         joint.data.set_limits(JointAxis::AngX, [f32::MIN, f32::MAX]);
@@ -567,7 +567,7 @@ pub fn update_body_moving(
                         joint.data.set_motor_velocity(
                             JointAxis::AngX,
                             velosity_right, //target_vel
-                            factor,         //damping
+                            damping,         //damping
                         );
                         //			joint.data.set_motor_velocity(JointAxis::AngX, velosity_right, factor);
                         joint.data.set_limits(JointAxis::AngX, [f32::MIN, f32::MAX]);
@@ -576,8 +576,6 @@ pub fn update_body_moving(
                 }
 
             //            println!("-------------------- joint: {:?}", &joint);
-
-            //  if let Some(mut joint) = joints.get_mut(joint_comp) {
             } else {
 	/* 			//TODO make a brake for this case
 				dbg!["update_body_moving", transform.rotation.to_euler(EulerRot::XYZ)];
@@ -596,7 +594,7 @@ pub fn update_body_moving(
 				joint.data.set_motor_velocity(
 					JointAxis::AngX,
 					0., //target_vel
-					factor,         //damping
+					damping,         //damping
 				);
 
 				joint.data.set_limits(JointAxis::AngX, [f32::MIN, f32::MAX]);
@@ -610,67 +608,3 @@ pub fn update_body_moving(
     }
 }
 
-/*
-pub fn update_body_moving(
-//	mut commands: Commands,
-    mut joint_query: Query<&mut MultibodyJoint>,
-    entity_query: Query<(Entity, &WheelData), With<WheelData>>,
-) {
-    let multipler = 10.;
-    let factor = 0.1;//if velosity_left != 0. && velosity_right != 0. { 0.1 } else { 2.0 };
-
-    for (entity, wheel_data) in entity_query.iter() {
-
-        if let Ok(mut joint) = joint_query.get_mut(entity) {
-            if let Some(movement) = wheel_data.movement {
-
-                let velosity_left = (movement.y - movement.x)*multipler;
-                let velosity_right = (movement.y + movement.x)*multipler;
-
-                match wheel_data.tag {
-                    Tag::LeftWheel => {
-                        joint.data.set_motor(
-                            JointAxis::AngX,
-                            0.,//target_pos:
-                            velosity_left,//target_vel
-                            0.,//stiffness
-                            factor, //damping
-                        );
-            //			joint.data.set_motor_velocity(JointAxis::AngX, velosity_left, factor);
-                        joint.data.set_limits(JointAxis::AngX, [f32::MIN, f32::MAX]);
-                    },
-                    Tag::RightWheel => {
-                        joint.data.set_motor(
-                            JointAxis::AngX,
-                            0.,//target_pos:
-                            velosity_right,//target_vel
-                            0.,//stiffness
-                            factor, //damping
-                        );
-            //			joint.data.set_motor_velocity(JointAxis::AngX, velosity_right, factor);
-                        joint.data.set_limits(JointAxis::AngX, [f32::MIN, f32::MAX]);
-                    },
-                    _ => continue,
-                }
-
-    //            println!("-------------------- joint: {:?}", &joint);
-
-            //  if let Some(mut joint) = joints.get_mut(joint_comp) {
-
-            } else {
-                let target_pos = joint.data.motor(JointAxis::AngX).unwrap().target_pos;
-                joint.data.set_motor(
-                    JointAxis::AngX,
-                    target_pos,//target_pos:
-                    0.,//target_vel
-                    10.,//stiffness
-                    10., //damping
-                );
-
-    //			joint.data.set_motor_velocity(JointAxis::AngX, 0., 200.);
-    //			joint.data.set_limits(JointAxis::AngX, [f32::MIN, f32::MAX]);
-            }
-        }
-    }
-}
-*/

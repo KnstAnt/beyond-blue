@@ -28,7 +28,7 @@ pub fn update_turret_rotation_from_net(
 
         let target_angle = if data.speed != 0. {
             let delta_time = (time.seconds_since_startup() - state.time) as f32 + ping.get_time(player.handle)*0.5;
-            normalize(data.angle + data.speed * delta_time)
+            normalize_angle(data.angle + data.speed * delta_time)
         } else {
             data.angle
         }; 
@@ -74,7 +74,7 @@ pub fn update_player_turret_rotation(
 
     let rot_speed = 0.5 * PI * rotation;
     let old_angle = transform.rotation.to_euler(EulerRot::YXZ).0;
-    let new_angle = normalize(old_angle + rot_speed * time.delta_seconds());
+    let new_angle = normalize_angle(old_angle + rot_speed * time.delta_seconds());
     transform.rotation = Quat::from_axis_angle(Vec3::Y, new_angle);
 
     if (is_changed && out_data_state.delta_time >= MIN_OUT_DELTA_TIME) || 

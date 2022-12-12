@@ -6,6 +6,7 @@ use iyes_loopless::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{collections::LinkedList, f32::consts::PI};
 
+use crate::camera::CameraTarget;
 use crate::loading::ModelAssets;
 use crate::player::PlayerData;
 use crate::utils::*;
@@ -32,6 +33,7 @@ use turret::*;
 pub use body::Data as TankBodyData;
 pub use cannon::Data as CannonRotation;
 pub use turret::Data as TurretRotation;
+
 
 #[derive(Component, Debug)]
 pub struct TankShotData {
@@ -70,8 +72,8 @@ pub struct TankEntityes {
 
 #[derive(Component, Debug, Clone)]
 pub struct TankShift {
-    pub pos: Vec3,
-    pub angle: f32,
+    pub velosity: Vec3,
+    pub rotation: f32,
     pub time: f32,
 }
 
@@ -108,11 +110,11 @@ impl Default for NewTanksData {
 
 pub struct TankPlugin;
 
-#[derive(Component, Debug)]
-pub struct TankMoveTarget;
+//#[derive(Component, Debug)]
+//pub struct TankMoveTarget;
 
-#[derive(Component, Debug)]
-pub struct TankLastPos;
+//#[derive(Component, Debug)]
+//pub struct TankLastPos;
 
 impl Plugin for TankPlugin {
     fn build(&self, app: &mut App) {
@@ -169,7 +171,7 @@ fn setup(
 ) {
     println!("Tank setup");
 
-    commands
+ /*   commands
  //   .spawn_bundle((Transform::identity(), GlobalTransform::identity()))
     .spawn_bundle(PbrBundle {
    /*     mesh: meshes.add(Mesh::from(shape::UVSphere {
@@ -194,9 +196,9 @@ fn setup(
         ..default()
     })
         .insert(TankMoveTarget);
+*/
 
-
-        commands
+ /*       commands
         //   .spawn_bundle((Transform::identity(), GlobalTransform::identity()))
            .spawn_bundle(PbrBundle {
           /*     mesh: meshes.add(Mesh::from(shape::UVSphere {
@@ -221,7 +223,7 @@ fn setup(
                ..default()
            })
                .insert(TankLastPos);
-
+*/
     //   let _scenes: Vec<HandleUntyped> = asset_server.load_folder("Tank_1/PARTS").unwrap();
 }
 
@@ -229,20 +231,25 @@ pub fn process_spawn_tanks(
     local_handles: Res<LocalHandles>,
     mut data: ResMut<NewTanksData>,
     query: Query<(&MesState<TankBodyData>, &PlayerData)>,
+    mut camera_target_query: Query<&mut Transform, With<CameraTarget>>,
     mut commands: Commands,
     model_assets: Res<ModelAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     rapier_context: Res<RapierContext>,
 ) {
+
+    dbg!("process_spawn_tanks", data.vector.len());
+
     'input_cicle: for data in &data.vector {
         for (mut _state, player) in query.iter() {
             if data.handle == player.handle {
+                dbg!("process_spawn_tanks player");
                 continue 'input_cicle;
             }
         }
 
-        if let Some(pos) = get_pos_on_ground(Vec3::new(data.pos.x, 1., data.pos.y), &rapier_context)
+        if let Some(pos) = get_pos_on_ground(Vec3::new(data.pos.x, 0., data.pos.y), &rapier_context)
         {
             /*
                     let entityes = create_debug_tank(
@@ -258,7 +265,7 @@ pub fn process_spawn_tanks(
             let entityes = create_tank(
                 &mut commands,
                 data.handle,
-                Vec3::new(pos.x, pos.y + 1., pos.z),
+                Vec3::new(pos.x, pos.y + 0.5, pos.z),
                 data.angle,
                 &model_assets,
                 &mut meshes,
@@ -267,6 +274,10 @@ pub fn process_spawn_tanks(
 
             if *local_handles.handles.first().unwrap() == data.handle {
                 set_player_control(&mut commands, &entityes);
+
+                if let Ok(mut camera_target_transform) = camera_target_query.get_single_mut() {
+                    camera_target_transform.translation = pos;
+                }
             } else {
                 set_network_control(&mut commands, &entityes, data.pos, data.angle);
             }
@@ -513,19 +524,20 @@ pub fn tank_shift(
         log::info!("tank_shift begin");
 
         if let Ok(mut transform) = transforms_query.get_mut(entityes.body) {
-            let old_pos = transform.translation;
-    //        let old_angle = get_angle_y(&transform.rotation);
-            let delta_pos = (data.pos - old_pos) * 
-            if data.time > 0. { 
-                data.time.min(time.delta_seconds()) / data.time 
+
+            let multipler = if data.time > 0. { 
+                time.delta_seconds() 
             } else {
-             1. 
+                1. 
             };
+
+            let delta_pos = data.velosity * multipler;
+            let delta_angle = data.rotation * multipler;
 
             data.time -= time.delta_seconds();
 
             transform.translation = transform.translation + delta_pos;
-            transform.rotation = set_angle_y(data.angle);      
+            transform.rotation = set_angle_y(normalize_angle(get_angle_y(&transform.rotation) + delta_angle));      
             
             for axle in &entityes.axles {
                 if let Ok(mut transform) = transforms_query.get_mut(*axle) {
@@ -538,9 +550,11 @@ pub fn tank_shift(
                     transform.translation = transform.translation + delta_pos;
                 }
             }
-        }
 
-        if data.time <= 0. { 
+            if data.time <= 0. { 
+                commands.entity(entityes.body).remove::<TankShift>();
+            }
+        } else {
             commands.entity(entityes.body).remove::<TankShift>();
         }
     }

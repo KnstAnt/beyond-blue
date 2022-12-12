@@ -1,10 +1,10 @@
-use std::f32::consts::{PI, FRAC_PI_2};
+use std::f32::consts::{PI, FRAC_PI_2, TAU};
 
 use bevy::prelude::{Transform, Quat, Vec3, Vec2, GlobalTransform};
 
 
 pub fn delta_angle(target_angle: f32, old_angle: f32) -> f32 {
-    normalize(target_angle - old_angle)
+    normalize_angle(target_angle - old_angle)
 }
 
 pub fn delta_angle_max(target_angle: f32, old_angle: f32, rot_speed: f32, delta_time: f32) -> f32 {
@@ -26,16 +26,16 @@ pub fn calc_angle(target_angle: f32, old_angle: f32, rot_speed: f32, delta_time:
     //  log::info!("Tank calc_dir dir:{:?} old_dir:{:?} rot_speed:{:?} delta_time:{:?} delta:{:?} new_dir:{:?}",
     //      dir, old_dir, rot_speed, delta_time, delta, new_dir );
 
-    normalize(new_angle)
+    normalize_angle(new_angle)
 }
 
-pub fn normalize(mut angle: f32) -> f32 {
-    if angle > std::f32::consts::PI {
-        angle -= std::f32::consts::TAU;
+pub fn normalize_angle(mut angle: f32) -> f32 {
+    if angle > PI {
+        angle -= TAU;
     }
 
-    if angle < -std::f32::consts::PI {
-        angle += std::f32::consts::TAU;
+    if angle < -PI {
+        angle += TAU;
     }
 
     angle
