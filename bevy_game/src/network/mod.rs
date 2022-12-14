@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use tokio::runtime::Runtime;
-use clap::Parser;
+use clap::{Parser, arg};
 use iyes_loopless::prelude::*;
 
 use peer::NetworkEvent;
@@ -21,16 +21,25 @@ use crate::game::{GameMessage, OutGameMessages};
 use crate::game::InMesMap;
 
 
-#[derive(Debug, Parser)]
-#[clap(name = "Example Beyond Blue peer")]
+#[derive(Parser, Debug, Resource)]
+#[command(author, version, about, long_about = None)]
 pub struct Opts {
     /// The listening address
-    #[clap(long)]
+    #[arg(long)] 
     relay_address: url::Url,
 }
 
+#[derive(Debug, Resource)]
+pub struct Wrapper<T>
+{
+    pub value: T,
+}
+
+
+
+
 #[repr(C)]
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Resource, Debug, Clone)]
 pub enum NetMessage {
     Ping(u64, u64),
     Pong(u64, u64),
@@ -39,6 +48,7 @@ pub enum NetMessage {
 
 pub type NetEvent = NetworkEvent<NetMessage>;
 
+#[derive(Resource)]
 pub struct NetHandles {
     last_handle: usize,
     pub handles: HashMap<String, PlayerHandle>,
@@ -85,7 +95,7 @@ impl Plugin for NetPlugin {
 
 fn setup_network(
     mut commands: Commands, 
-    runtime: Res<Runtime>, 
+    runtime: Res<Wrapper<Runtime>>, 
     opts: Res<Opts>,
 ) {
     log::info!("setup_network start");
@@ -94,7 +104,7 @@ fn setup_network(
     let (remote_in, remote_out) = mpsc::channel(32);
 
     let relay_address = opts.relay_address.clone();
-    runtime.spawn(async move {
+    runtime.value.spawn(async move {
         let id = common::Identity::from_file("nothing".into());
 
         tokio::spawn(async move {
@@ -109,8 +119,8 @@ fn setup_network(
         });
     });
 
-    commands.insert_resource(local_in);
-    commands.insert_resource(Arc::new(Mutex::new(remote_out)));
+    commands.insert_resource(Wrapper{value: local_in});
+    commands.insert_resource(Wrapper{value: Arc::new(Mutex::new(remote_out))});
 
     log::info!("setup_network end");
 }
@@ -131,14 +141,16 @@ pub fn handle_conn_events(
     mut ping: ResMut<PingList>,
     mut handles: ResMut<NetHandles>,    
     mut in_mess: ResMut<InMesMap<GameMessage>>,
-    from_server: Res<Arc<Mutex<mpsc::Receiver<NetEvent>>>>,
-    to_server: ResMut<mpsc::Sender<NetMessage>>,
+    from_server: Res<Wrapper<Arc<Mutex<mpsc::Receiver<NetEvent>>>>>, 
+ //   from_server: Res<Arc<Mutex<mpsc::Receiver<NetEvent>>>>,
+    to_server: ResMut<Wrapper<mpsc::Sender<NetMessage>>>, 
+ //   to_server: ResMut<mpsc::Sender<NetMessage>>,
     time: Res<Time>,
 ) {
  //   log::info!("net handle_conn_events start");
 
     // The operation can't be blocking inside the bevy system.
-    if let Ok(msg) = from_server.lock().unwrap().try_recv() {
+    if let Ok(msg) = from_server.value.lock().unwrap().try_recv() {
         match msg {
             peer::NetworkEvent::NewConnection(peer_id) => {
 //                log::info!("handle_conn_events msg: NewConnection");
@@ -149,7 +161,7 @@ pub fn handle_conn_events(
                     handles.handles.insert(peer_id.clone(), new_handle);   
                     handles.last_handle = new_handle;  
              
-                    let _res = to_server.try_send(NetMessage::GameData(GameMessage::DataRequest));
+                    let _res = to_server.value.try_send(NetMessage::GameData(GameMessage::DataRequest));
                 }
 
                 if !ping.is_connected() {
@@ -165,10 +177,10 @@ pub fn handle_conn_events(
                 if let NetMessage::Ping(id, temp) = mess {
 //                    log::info!("handle_conn_events Ping id:{:?}", id);  
                     ping.check_collision_id(id);
-                    let _res = to_server.try_send(NetMessage::Pong(id, temp));
+                    let _res = to_server.value.try_send(NetMessage::Pong(id, temp));
                 } else if let NetMessage::Pong(id, _) = mess {
 //                    log::info!("handle_conn_events Pong id:{:?}", id);   
-                    ping.receive_pong(id, handle, time.seconds_since_startup());
+                    ping.receive_pong(id, handle, time.elapsed_seconds());
                 } else if let NetMessage::GameData(data) = mess {
  //                   log::info!("handle_conn_events {:?}", data.clone());
                     in_mess.data.insert(handle, data);
@@ -181,13 +193,14 @@ pub fn handle_conn_events(
 
 fn send_out(
     mut output: ResMut<OutGameMessages<GameMessage>>,
-    to_server: ResMut<mpsc::Sender<NetMessage>>,
+    to_server: ResMut<Wrapper<mpsc::Sender<NetMessage>>>, 
+ //   to_server: ResMut<mpsc::Sender<NetMessage>>,
 ) {
     if output.is_changed() {
 
         for mess in output.data.drain(0..) {
  //           log::info!("send_out {:?}", mess.clone());
-            let res = to_server.try_send(NetMessage::GameData(mess));
+            let _res = to_server.value.try_send(NetMessage::GameData(mess));
         }
 
         output.data.clear();

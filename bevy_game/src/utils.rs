@@ -89,7 +89,7 @@ impl Convert for Transform {
         .transform_point3(*pos)
     }
     fn pos_to_global(&self, pos: &Vec3) -> Vec3 {
-        self.mul_vec3(*pos)
+        self.transform_point(*pos)
     }
 }
 
@@ -117,7 +117,7 @@ impl Convert for Quat {
     }
     fn dir_to_global(&self, dir: &Vec3) -> Vec3 {
         Transform::from_rotation(*self)
-        .mul_vec3(*dir)
+        .transform_point(*dir)
     }
     fn pos_to_local(&self, pos: &Vec3) -> Vec3 {
         panic!("wrong data");

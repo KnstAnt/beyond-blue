@@ -11,7 +11,7 @@ use crate::network::PingList;
 use crate::player::{ControlCannon, PlayerData};
 
 #[repr(C)]
-#[derive(Serialize, Deserialize, Component, Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Serialize, Deserialize, Resource, Component, Debug, Default, Clone, Copy, PartialEq)]
 pub struct Data {
     pub speed: f32,
     pub angle: f32,
@@ -27,7 +27,7 @@ pub fn update_cannon_rotation_from_net(
         let old_angle = transform.rotation.to_euler(EulerRot::XYZ).0;
 
         let mut new_angle = if data.speed != 0. {
-            let delta_time = (time.seconds_since_startup() - state.time) as f32 + ping.get_time(player.handle)*0.5;
+            let delta_time = (time.elapsed_seconds() - state.time) as f32 + ping.get_time(player.handle)*0.5;
             normalize_angle(data.angle + data.speed * delta_time)
         } else {
             data.angle

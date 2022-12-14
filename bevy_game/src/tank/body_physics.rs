@@ -310,7 +310,7 @@ fn add_components_to_body(
         .insert(solver_groups)
         .with_children(|parent| {
             parent
-                .spawn()
+                .spawn_empty()
                 .insert(Collider::cuboid(
                     half_size.x * 0.3,
                     half_size.y * 0.2,
@@ -401,7 +401,7 @@ fn spawn_axle(
 
     let bundle = TransformBundle {
         local: Transform::from_translation(pos_in),
-        global: GlobalTransform::identity(),
+        global: GlobalTransform::IDENTITY,
     };
 
     commands
@@ -458,7 +458,7 @@ fn spawn_wheel(
     };
 
     commands
-        .spawn()
+        .spawn_empty()
         .insert(NameComponent {
             name: format!("{} Wheel", prefix),
         })
@@ -466,7 +466,7 @@ fn spawn_wheel(
         .insert(RigidBody::Dynamic)
         .with_children(|parent| {
             parent
-                .spawn()
+                .spawn_empty()
                 .insert(Transform::from_rotation(Quat::from_rotation_z(
                     90.0_f32.to_radians(),
                 )))

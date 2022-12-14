@@ -22,7 +22,7 @@ pub struct CameraPlugin<T: 'static + Send + Sync>(pub PhantomData<T>);
 #[derive(Component, Debug)]
 pub struct MyCamera;
 
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct CameraState {
     pub forward: Vec3,
     pub right: Vec3,
@@ -116,7 +116,7 @@ fn setup<T: 'static + Send + Sync>(
         .insert(MyCamera);
 
     commands
-        .spawn_bundle((Transform::identity(), GlobalTransform::identity()))
+        .spawn_bundle((Transform::IDENTITY, GlobalTransform::IDENTITY))
         /* .spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(UVSphere {
                 radius: 0.1,

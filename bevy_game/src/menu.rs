@@ -43,23 +43,24 @@ pub enum MenuState {
     Test,
 }
 
+#[derive(Resource)]
 struct ButtonColors {
-    clicked: UiColor,
-    hovered: UiColor,
-    normal: UiColor,
+    clicked: BackgroundColor,
+    hovered: BackgroundColor,
+    normal: BackgroundColor,
 }
 
 impl Default for ButtonColors {
     fn default() -> Self {
         ButtonColors {
-            clicked: Color::rgb(0.5, 0.5, 0.5).into(),
-            hovered: Color::rgb(0.25, 0.25, 0.25).into(),
-            normal: Color::rgb(0.15, 0.15, 0.15).into(),            
+            clicked: BackgroundColor::from(Color::rgb(0.5, 0.5, 0.5)),
+            hovered: BackgroundColor::from(Color::rgb(0.25, 0.25, 0.25)),
+            normal: BackgroundColor::from(Color::rgb(0.15, 0.15, 0.15)),            
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct MenuData {
     state: MenuState,
 }
@@ -117,15 +118,14 @@ fn setup_menu(
         ..Default::default()
     };
     
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
-    commands.spawn_bundle(NodeBundle {
-        color: UiColor(Color::rgb(0.0, 0.0, 0.0)),
+    commands.spawn(NodeBundle {
         style: Style {
             size: Size::new(Val::Auto, Val::Auto),
             margin: UiRect::all(Val::Auto),
             align_self: AlignSelf::Center,
-            flex_direction: FlexDirection::ColumnReverse,
+            flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             ..Default::default()
         },
@@ -133,53 +133,53 @@ fn setup_menu(
     })
     .insert(MainMenu)
     .with_children(|menu| {
-        menu.spawn_bundle(ButtonBundle {
+        menu.spawn(ButtonBundle {
             style: button_style.clone(),
-            color: button_colors.normal,
+            background_color: button_colors.normal,
             ..Default::default()
         })
         .insert(StartLocalButton)
         .with_children(|btn| {
-            btn.spawn_bundle(TextBundle {
+            btn.spawn(TextBundle {
                 text: Text::from_section("Start Local Game", title_style.clone()),
                 ..Default::default()
             });
         });
 
-        menu.spawn_bundle(ButtonBundle {
+        menu.spawn(ButtonBundle {
             style: button_style.clone(),
-            color: button_colors.normal,
+            background_color: button_colors.normal,
             ..Default::default()
         })
         .insert(StartNetButton)
         .with_children(|btn| {
-            btn.spawn_bundle(TextBundle {
+            btn.spawn(TextBundle {
                 text: Text::from_section("Start Network Game", title_style.clone()),
                 ..Default::default()
             });
         });
 
-        menu.spawn_bundle(ButtonBundle {
+        menu.spawn(ButtonBundle {
             style: button_style.clone(),
-            color: button_colors.normal,
+            background_color: button_colors.normal,
             ..Default::default()
         })
         .insert(StartTestButton)
         .with_children(|btn| {
-            btn.spawn_bundle(TextBundle {
+            btn.spawn(TextBundle {
                 text: Text::from_section("Start Tests", title_style.clone()),
                 ..Default::default()
             });
         });
 
-        menu.spawn_bundle(ButtonBundle {
+        menu.spawn(ButtonBundle {
             style: button_style.clone(),
-            color: button_colors.normal,
+            background_color: button_colors.normal,
             ..Default::default()
         })
         .insert(ExitButton)
         .with_children(|btn| {
-            btn.spawn_bundle(TextBundle {
+            btn.spawn(TextBundle {
                 text: Text::from_section("Exit Game", title_style.clone()),
                 ..Default::default()
             });
@@ -188,7 +188,7 @@ fn setup_menu(
 
 /* 
     commands
-        .spawn_bundle(ButtonBundle {
+        .spawn(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(120.0), Val::Px(50.0)),
                 margin: UiRect::all(Val::Auto),
@@ -200,7 +200,7 @@ fn setup_menu(
             ..Default::default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle(TextBundle {
+            parent.spawn(TextBundle {
                 text: Text {
                     sections: vec![TextSection {
                         value: "Play".to_string(),
@@ -219,10 +219,10 @@ fn setup_menu(
 }
 
 fn obr_buttons_visual(
-    mut commands: Commands,
+//    commands: Commands,
     button_colors: Res<ButtonColors>,
     mut interaction_query: Query<
-        (&Interaction, &mut UiColor),
+        (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
 ) {

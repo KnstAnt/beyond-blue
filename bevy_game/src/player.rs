@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::prelude::Component;
 use bevy::prelude::*;
 //use iyes_loopless::prelude::*;
@@ -19,7 +21,7 @@ pub struct PlayerData {
     pub handle: PlayerHandle,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct LocalHandles {
     pub handles: Vec<PlayerHandle>,
 }
@@ -39,8 +41,8 @@ pub struct ControlFire {
 #[derive(Component, Copy, Clone, PartialEq, Debug, Default)]
 pub struct ControlMove {
     pub movement: Vec2,
-    pub time_linear: f64,
-    pub time_angular: f64,
+    pub time_linear: f32,
+    pub time_angular: f32,
 }
 
 #[derive(Component, Copy, Clone, PartialEq, Debug, Default)]
@@ -333,13 +335,17 @@ pub fn prep_turret_input(
 
             let local_dir = dir_to_local(turret_global_transform, &shot_dir);
 
+            let dot_forward = local_dir.dot(Vec3::NEG_Z);
+
             turret_rotation = get_angle_y(&Vec2::new(local_dir.x, local_dir.z));
+            
+            if dot_forward < 0. {
+                turret_rotation = PI*turret_rotation.signum();
+            }
 
             if turret_rotation.abs() < ANGLE_SPEED_EPSILON {
                 turret_rotation = 0.;
             }
-
-            let dot_forward = local_dir.dot(Vec3::NEG_Z);
 
             let local_dir = dir_to_local(cannon_global_transform, &shot_dir);
 

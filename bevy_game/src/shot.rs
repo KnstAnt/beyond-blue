@@ -20,7 +20,7 @@ use std::time::Duration;
 use crate::explosion::NetData as ExplosionData;
 
 #[repr(C)]
-#[derive(Serialize, Deserialize, Component, Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Serialize, Deserialize, Component, Resource, Debug, Default, Clone, Copy, PartialEq)]
 pub struct ShotData {
     pub is_shot: bool,
     pub pos: Vec3,
@@ -28,7 +28,7 @@ pub struct ShotData {
     pub radius: f32,
 }
 
-#[derive(Component)]
+#[derive(Component, Resource)]
 pub struct ShotExplosionData {
     timer: Timer,
     pub explosion_radius: f32,
@@ -38,7 +38,7 @@ pub struct ShotExplosionData {
 impl ShotExplosionData {
     pub fn new(live_max_time: f32, explosion_force: f32) -> Self {
         Self {
-            timer: Timer::new(Duration::from_secs_f32(live_max_time), false),
+            timer: Timer::new(Duration::from_secs_f32(live_max_time), TimerMode::Once),
             explosion_radius: 10.*explosion_force.powf(0.5),
             explosion_force,
         }
@@ -265,7 +265,7 @@ fn process_shots_game_local(
         }
 
 
-        let half_height = if let Some(ball) = collider.as_ball() {
+ /*       let half_height = if let Some(ball) = collider.as_ball() {
             ball.radius() as f32
         } else {
             0.1f32
@@ -308,6 +308,8 @@ fn process_shots_game_local(
 
         //    add_explosion(&mut commands, entity, global_transform.translation, &shot_data);
         // commands.entity(entity).despawn_recursive();
+*/
+
     }
 }
 

@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -20,7 +18,7 @@ const WHEEL_SPEED_MAX: f32 = 10.;
 
 
 #[repr(C)]
-#[derive(Serialize, Deserialize, Component, Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Serialize, Deserialize, Resource, Component, Debug, Default, Clone, Copy, PartialEq)]
 pub struct Data {
     pub movement: Vec2,
     pub delta_time_linear: u16,
@@ -119,7 +117,7 @@ pub fn update_body_position_from_net(
             }
         } else {
             //try to compensate the ping delay 
-            let state_delta_time_data = (time.seconds_since_startup() - state.time) as f32;// + ping.get_time(player.handle) * 0.7;
+            let state_delta_time_data = (time.elapsed_seconds() - state.time) as f32;// + ping.get_time(player.handle) * 0.7;
             let ping_time = ping.get_time(player.handle);
             let delta_time_linear = data.get_delta_time_linear() + state_delta_time_data + ping_time;
             let delta_time_angular = data.get_delta_time_angular() + state_delta_time_data + ping_time;//).min(START_DELAY);
@@ -368,8 +366,8 @@ pub fn update_player_body_control(
     let new_linvel = Vec2::new(vel.linvel.x, vel.linvel.z);
     let new_angvel = vel.angvel.y;
 
-    let delta_time_linear = (time.seconds_since_startup() - control.time_linear) as f32;
-    let delta_time_angular = (time.seconds_since_startup() - control.time_angular) as f32;
+    let delta_time_linear = (time.elapsed_seconds() - control.time_linear) as f32;
+    let delta_time_angular = (time.elapsed_seconds() - control.time_angular) as f32;
 
     let move_y = control.movement.y
         * delta_time_linear.min(START_DELAY)

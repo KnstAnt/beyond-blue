@@ -45,7 +45,7 @@ fn update_input<T>(
 ) where
     T: 'static + Send + Sync + Default + Debug + Eq + Hash + Clone + TryFrom<u16> + TryInto<u16>,
 {
-    game_control.process_input(&keyboard_input, &mouse_input, time.seconds_since_startup());
+    game_control.process_input(&keyboard_input, &mouse_input, time.elapsed_seconds());
 }
 
 #[derive(Debug, Default, Eq, PartialEq, Hash, Copy, Clone, PartialOrd, Ord)]
@@ -53,15 +53,15 @@ pub struct KeyState {
     pub just_pressed: bool,
     pub pressed: bool,
     pub just_released: bool,
-    pub time: u64,
+    pub time: u32,
 }
 
 impl KeyState {
-    pub fn set_time(&mut self, time: f64) {
-        self.time = (time * 1000.) as u64;
+    pub fn set_time(&mut self, time: f32) {
+        self.time = (time * 1000.) as u32;
     }
-    pub fn get_time(&self) -> f64 {
-        (self.time as f64) / 1000. //as f32
+    pub fn get_time(&self) -> f32 {
+        (self.time as f32) / 1000. 
     }
 }
 
@@ -83,7 +83,7 @@ impl From<MouseButton> for InputAction {
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Resource, Debug)]
 pub struct GameControl<T>
 where
     T: 'static + Send + Sync + Default + Debug + Eq + Hash + Clone + TryFrom<u16> + TryInto<u16>,
@@ -209,7 +209,7 @@ where
         &mut self,
         keyboard_input: &Res<Input<KeyCode>>,
         mouse_input: &Res<Input<MouseButton>>,
-        time: f64,
+        time: f32,
     ) {
         for (name, actions) in &self.keys {
 

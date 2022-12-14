@@ -16,7 +16,7 @@ pub enum TerrainState {
     Complete,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub(crate) struct TerrainScene {
     scene_handle: Option<Handle<Gltf>>,
     loading_state: TerrainState,
@@ -316,7 +316,7 @@ fn setup_terrain_physics(
     }
 }
 
-pub fn get_pos_on_ground(pos: Vec3, rapier_context: &RapierContext) -> Option<Vec3> {
+pub fn get_pos_on_ground(pos: Vec3, rapier_context: &Res<RapierContext>) -> Option<Vec3> {
  //   println!("terrain get_pos_on_ground");
 
     let filter = bevy_rapier3d::prelude::QueryFilter::from(
@@ -346,7 +346,7 @@ pub fn get_pos_on_ground(pos: Vec3, rapier_context: &RapierContext) -> Option<Ve
         return Some(Vec3::new(pos.x, pos.y + 2000. - _toi, pos.z));
     }
 
-    println!("terrain get_pos_on_ground fail");
+    dbg!("terrain get_pos_on_ground fail", pos, result);
 
     None
 }

@@ -31,7 +31,7 @@ pub enum PlayingState {
     Complete,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub(crate) struct PlayingScene {
     playing_state: PlayingState,
 }
@@ -72,7 +72,7 @@ pub const VEL_EPSILON: f32 = 0.01;
 pub const VEL_EPSILON_QRT: f32  = VEL_EPSILON * VEL_EPSILON;
 
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Resource)]
 pub struct OutMessageState<T>
 //where T: 'static + Serialize + Deserialize + DeserializeOwned + Default + Component + PartialEq,
 {
@@ -80,31 +80,31 @@ pub struct OutMessageState<T>
     pub old_data: T,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Resource)]
 pub struct OutGameMessages<T>
 //where T: 'static + Serialize + Deserialize + DeserializeOwned + Default + Component + PartialEq,
 {
     pub data: Vec<T>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Resource)]
 pub struct InMesMap<T>
 //where T: 'static + Serialize + Deserialize + DeserializeOwned + Default + Component + PartialEq,
 {
     pub data: HashMap<PlayerHandle, T>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Resource)]
 pub struct InMesVec<T>
 //where T: 'static + Serialize + Deserialize + DeserializeOwned + Default + Component + PartialEq,
 {
     pub data: Vec<(PlayerHandle, T)>,
 }
 
-#[derive(Component, Debug, Default, PartialEq)]
+#[derive(Component, Debug, Default, PartialEq, Resource)]
 pub struct MesState<T: Default + Component> {
     pub data: T,
-    pub time: f64,
+    pub time: f32,
 }
 
 #[repr(C)]
@@ -126,7 +126,7 @@ impl Default for GameMessage {
     }
 }
 
-#[derive(Serialize, Deserialize, Component, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Component, Resource, Debug, Clone, PartialEq)]
 pub struct NewTankData {
     pub matrix: Mat4,
 }
@@ -331,7 +331,7 @@ pub fn spawn_player(
     handle: usize,
     pos: Vec2,
     angle: f32,
-    rapier_context: &RapierContext,
+    rapier_context: Res<RapierContext>,
     data: &mut NewTanksData,
 ) -> bool {
     println!("Game spawn_player start");
@@ -341,7 +341,7 @@ pub fn spawn_player(
             ..default()
         });
     */
-    if let Some(_new_pos) = get_pos_on_ground(Vec3::new(pos.x, 1., pos.y), rapier_context) {
+    if let Some(_new_pos) = get_pos_on_ground(Vec3::new(pos.x, 1., pos.y), &rapier_context) {
         data.vector.push(NewTank { handle, pos, angle });
 
         println!("Game spawn_player complete, handle:{}", handle);
@@ -609,7 +609,7 @@ pub fn process_in_mes_map<T>(
     for (mut state, player) in query.iter_mut() {
         if let Some(data) = input.data.get_mut(&player.handle) {
             state.data = *data;
-            state.time = time.seconds_since_startup();
+            state.time = time.elapsed_seconds();
             //           log::info!("process_in_mes_map data:{:?}", data);
         }
     }
@@ -628,7 +628,7 @@ pub fn process_in_mes_tank_body(
     for (mut state, player) in query.iter_mut() {
         if let Some(data) = input.data.get_mut(&player.handle) {
             state.data = *data;
-            state.time = time.seconds_since_startup();
+            state.time = time.elapsed_seconds();
             //            log::info!("process_in_mes_tank_body data:{:?}", data);
         }
     }

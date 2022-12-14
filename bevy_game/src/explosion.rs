@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use bevy_rapier3d::rapier::prelude::{ColliderBuilder, SharedShape};
 use iyes_loopless::prelude::*;
 
 use rand::Rng;
@@ -111,7 +110,7 @@ pub fn add_explosion(
     force: f32,
     radius: f32,
     player: usize,
-    rapier_context: &RapierContext,
+    rapier_context: &Res<RapierContext>,
 ) {
     //    info!("add_explosion start");
 
@@ -141,7 +140,7 @@ pub fn add_explosion(
     );
 
     commands
-        .spawn_bundle(PointLightBundle {
+        .spawn(PointLightBundle {
             //                transform: Transform::from_xyz(5.0, 8.0, 2.0),
             point_light: PointLight {
                 intensity: 3000., // lumens - roughly a 100W non-halogen incandescent bulb
